@@ -1,0 +1,21 @@
+# -----------------------------------------------------------------------------
+# 文件说明：
+# 这是后端脚手架的 Python 依赖清单，覆盖冻结文档中确定的主技术栈：
+# FastAPI、SQLAlchemy、Alembic、MySQL、Redis、JWT、OSS、DeepSeek 调用测试等。
+# 组长和 B 同学都应以此为统一依赖入口继续扩展。
+# -----------------------------------------------------------------------------
+
+fastapi==0.115.11
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.39
+alembic==1.15.1
+pymysql==1.1.1
+redis==5.2.1
+pydantic-settings==2.8.1
+python-jose==3.4.0
+passlib[bcrypt]==1.7.4
+httpx==0.28.1
+pytest==8.3.5
+python-multipart==0.0.20
+oss2==2.19.1
+
