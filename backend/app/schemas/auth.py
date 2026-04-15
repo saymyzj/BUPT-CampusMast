@@ -5,17 +5,17 @@
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class AuthRegisterRequest(BaseModel):
-    studentEmail: EmailStr
+    studentEmail: str
     password: str
     nickname: str
 
 
 class AuthLoginRequest(BaseModel):
-    studentEmail: EmailStr
+    studentEmail: str
     password: str
 
 
@@ -23,9 +23,16 @@ class TokenRefreshRequest(BaseModel):
     refreshToken: str
 
 
+class UserUpdateRequest(BaseModel):
+    nickname: str | None = None
+    phone: str | None = None
+    avatarUrl: str | None = None
+    defaultBuildingCode: str | None = None
+
+
 class UserResponse(BaseModel):
     id: str
-    studentEmail: EmailStr
+    studentEmail: str
     nickname: str
     role: str
     requesterCreditScore: float
@@ -39,4 +46,3 @@ class AuthPayload(BaseModel):
     accessToken: str
     refreshToken: str
     user: UserResponse
-

@@ -20,6 +20,7 @@ class ChatReadRequest(BaseModel):
 class ChatMessageResponse(BaseModel):
     id: str
     conversationId: str
+    taskId: str
     senderId: str
     content: str
     createdAt: str
@@ -30,4 +31,3 @@ class ChatConversationResponse(BaseModel):
     taskId: str
     unreadCount: int
     latestMessage: ChatMessageResponse | None = None
-

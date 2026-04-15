@@ -68,12 +68,9 @@ x-websocket:
       events:
         - CHAT_MESSAGE
         - CHAT_READ
-        - USER_TYPING
     - name: presence:{taskId}
-      description: 聊天在线状态与已读同步通道
+      description: 预留的在线状态扩展通道，v1 不作为联调阻塞项
       events:
-        - USER_ONLINE
-        - USER_OFFLINE
         - CHAT_READ
 
 paths:
@@ -1211,7 +1208,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/HomepageBlock"
+              $ref: "#/components/schemas/HomepageBlockUpsert"
       responses:
         "200":
           description: 更新成功
@@ -1626,6 +1623,8 @@ components:
           type: string
         conversationId:
           type: string
+        taskId:
+          type: string
         senderId:
           type: string
         content:
@@ -1643,10 +1642,17 @@ components:
           type: string
         campusZone:
           type: string
-        xCoord:
+        latitude:
           type: number
-        yCoord:
+        longitude:
           type: number
+        polygon:
+          type: array
+          nullable: true
+          items:
+            type: array
+            items:
+              type: number
 
     NearbyTask:
       allOf:
@@ -1720,6 +1726,24 @@ components:
       properties:
         id:
           type: string
+        blockType:
+          $ref: "#/components/schemas/HomepageBlockType"
+        title:
+          type: string
+        content:
+          type: object
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+
+    HomepageBlockUpsert:
+      type: object
+      required: [blockType, title, content]
+      properties:
         blockType:
           $ref: "#/components/schemas/HomepageBlockType"
         title:

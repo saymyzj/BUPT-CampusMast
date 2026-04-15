@@ -29,4 +29,12 @@ class HomepageBlockResponse(BaseModel):
     content: dict[str, Any]
     sortOrder: int
     isActive: bool
+    updatedAt: str
 
+
+class HomepageBlockUpsertRequest(BaseModel):
+    blockType: str
+    title: str
+    content: dict[str, Any]
+    sortOrder: int = 0
+    isActive: bool = True
