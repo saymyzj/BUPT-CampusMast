@@ -15,7 +15,7 @@ export const MAP_CONFIG: MapConfig = {
 };
 
 export const FILTERS: FilterOption[] = [
-  { id: "all", label: "全部地图点位" },
-  { id: "fast", label: "顺路极速单" },
-  { id: "high", label: "高额悬赏" },
+  { id: "all", label: "全部" },
+  { id: "fast", label: "极速单" },
+  { id: "high", label: "高赏金" },
 ];

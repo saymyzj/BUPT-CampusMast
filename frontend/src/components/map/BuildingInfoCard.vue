@@ -99,9 +99,9 @@ watch(
   z-index: 1200;
   border-radius: 28px;
   overflow: hidden;
-  background: rgba(248, 243, 235, 0.96);
-  border: 1px solid rgba(31, 42, 58, 0.08);
-  box-shadow: 0 26px 50px rgba(20, 29, 40, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(31, 42, 58, 0.05);
+  box-shadow: 0 20px 48px rgba(20, 29, 40, 0.12), 0 2px 6px rgba(20, 29, 40, 0.04);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   display: flex;
@@ -269,7 +269,7 @@ watch(
   gap: 10px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(245, 243, 238, 0.85);
   border: 1px solid rgba(31, 42, 58, 0.06);
 }
 
@@ -304,11 +304,11 @@ watch(
 }
 
 .panel-slide-enter-active {
-  animation: panel-in 220ms ease;
+  animation: panel-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .panel-slide-leave-active {
-  animation: panel-in 180ms ease reverse;
+  animation: panel-in 200ms cubic-bezier(0.22, 1, 0.36, 1) reverse;
 }
 
 @keyframes panel-in {

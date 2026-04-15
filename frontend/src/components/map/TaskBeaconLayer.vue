@@ -369,11 +369,17 @@ onUnmounted(() => {
 }
 
 .task-popup-shell .leaflet-popup-content-wrapper {
-  border-radius: 20px;
-  background: rgba(248, 243, 235, 0.98);
-  border: 1px solid rgba(31, 42, 58, 0.08);
-  box-shadow: 0 22px 42px rgba(31, 34, 48, 0.18);
-  overflow: visible;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(31, 42, 58, 0.06);
+  box-shadow: 0 16px 40px rgba(31, 34, 48, 0.12), 0 2px 6px rgba(31, 34, 48, 0.04);
+  overflow: hidden;
+  animation: popup-reveal 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes popup-reveal {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .task-popup-shell .leaflet-popup-content {
@@ -388,7 +394,6 @@ onUnmounted(() => {
 .task-popup-shell.leaflet-zoom-animated,
 .leaflet-fade-anim .task-popup-shell,
 .leaflet-zoom-anim .task-popup-shell.leaflet-zoom-animated,
-.task-popup-shell .leaflet-popup-content-wrapper,
 .task-popup-shell .leaflet-popup-tip,
 .task-popup-shell .leaflet-popup-tip-container {
   transition: none !important;
@@ -406,7 +411,7 @@ onUnmounted(() => {
   margin: 0;
   width: 24px;
   height: 14px;
-  background: rgba(248, 243, 235, 0.98);
+  background: #fff;
   box-shadow: none;
   transform: none;
   filter: drop-shadow(0 6px 10px rgba(31, 34, 48, 0.08));

@@ -27,12 +27,18 @@ watch(map, (m) => {
   top: 18px;
   right: 18px;
   bottom: 18px;
-  width: min(860px, calc(100vw - 372px));
-  border-radius: 28px;
+  left: 352px;
+  border-radius: 22px;
   overflow: hidden;
-  box-shadow: 0 22px 48px rgba(20, 29, 40, 0.18);
-  border: 1px solid rgba(31, 42, 58, 0.08);
+  box-shadow: 0 12px 40px rgba(20, 29, 40, 0.1);
+  border: 1px solid rgba(31, 42, 58, 0.05);
   z-index: 1;
+  animation: map-reveal 600ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
+}
+
+@keyframes map-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .map-container :deep(.leaflet-container) {
@@ -41,35 +47,35 @@ watch(map, (m) => {
 }
 
 .map-container :deep(.leaflet-control-attribution) {
-  background: rgba(245, 239, 226, 0.88);
-  border-radius: 12px 0 0 0;
-  color: #586579;
-  font-size: 11px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px 0 0 0;
+  color: #8d96a5;
+  font-size: 10px;
+  padding: 3px 8px;
 }
 
 .map-container :deep(.leaflet-control-zoom) {
   border: none;
-  box-shadow: 0 12px 24px rgba(20, 29, 40, 0.14);
+  box-shadow: 0 4px 16px rgba(20, 29, 40, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .map-container :deep(.leaflet-control-zoom a) {
-  width: 34px;
-  height: 34px;
-  line-height: 34px;
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
   color: #1f2230;
-  background: rgba(245, 239, 226, 0.96);
-  border: 1px solid rgba(31, 42, 58, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  border: none;
+  border-bottom: 1px solid rgba(31, 42, 58, 0.06);
+}
+
+.map-container :deep(.leaflet-control-zoom a:last-child) {
+  border-bottom: none;
 }
 
 .map-container :deep(.leaflet-control-zoom a:hover) {
-  background: #fffaf2;
-}
-
-@media (max-width: 1180px) {
-  .map-container {
-    left: 18px;
-    width: auto;
-    top: 180px;
-  }
+  background: #fff;
 }
 </style>
