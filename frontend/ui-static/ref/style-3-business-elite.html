@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusMast 校园万事达 — 任务大厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f2eee8;
+    --text: #1b1a18;
+    --gold: #a86f3d;
+    --gold-hover: #8d5a2d;
+    --gold-light: rgba(168, 111, 61, 0.12);
+    --dark: #252220;
+    --dark-deep: #171411;
+    --border: #d8cfc3;
+    --white: #FFFFFF;
+    --row-alt: #f7f2eb;
+    --muted: #7d7265;
+    --success: #56785e;
+    --danger: #ab5e50;
+    --font-heading: 'Playfair Display', 'Noto Sans SC', serif;
+    --font-body: 'Source Sans 3', 'Noto Sans SC', sans-serif;
+    --font-cn: 'Noto Sans SC', sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    --radius: 3px;
+    --transition: 180ms ease;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background:
+      linear-gradient(90deg, rgba(168,111,61,0.04) 0 1px, transparent 1px 100%),
+      var(--bg);
+    background-size: 28px 28px;
+    color: var(--text);
+    min-width: 1200px;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-hover); }
+
+  /* ===================== TOP NAV ===================== */
+  .top-nav {
+    background: var(--dark);
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid #3A3A3A;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .nav-brand-en {
+    font-family: var(--font-heading);
+    color: var(--gold);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  .nav-brand-cn {
+    font-family: var(--font-cn);
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 1px;
+  }
+
+  .nav-search {
+    flex: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .nav-search input {
+    width: 100%;
+    height: 36px;
+    background: #3A3A3A;
+    border: 1px solid #4A4A4A;
+    border-radius: var(--radius);
+    padding: 0 40px 0 14px;
+    color: #FFFFFF;
+    font-family: var(--font-body);
+    font-size: 13px;
+    outline: none;
+    transition: border-color var(--transition);
+  }
+
+  .nav-search input::placeholder { color: #777; }
+  .nav-search input:focus { border-color: var(--gold); }
+
+  .nav-search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #777;
+    font-size: 14px;
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-shrink: 0;
+  }
+
+  .nav-bell {
+    position: relative;
+    cursor: pointer;
+    color: #CCC;
+    font-size: 18px;
+    transition: color var(--transition);
+  }
+
+  .nav-bell:hover { color: var(--gold); }
+
+  .nav-bell-badge {
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    background: var(--gold);
+    color: var(--dark);
+    font-size: 10px;
+    font-weight: 700;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .nav-balance {
+    font-family: var(--font-mono);
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .nav-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: #CCC;
+    transition: color var(--transition);
+  }
+
+  .nav-user:hover { color: var(--gold); }
+
+  .nav-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-family: var(--font-cn);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .nav-username {
+    font-family: var(--font-cn);
+    font-size: 13px;
+  }
+
+  /* ===================== SUB NAV ===================== */
+  .sub-nav {
+    background: var(--white);
+    border-bottom: 2px solid var(--gold);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sub-nav-left {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  .sub-nav-title {
+    font-family: var(--font-heading);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .sub-nav-count {
+    font-family: var(--font-cn);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .sub-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .view-toggle-btn {
+    padding: 6px 14px;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    background: var(--white);
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all var(--transition);
+    border-right: 1px solid var(--border);
+  }
+
+  .view-toggle-btn:last-child { border-right: none; }
+
+  .view-toggle-btn.active {
+    background: var(--dark);
+    color: var(--white);
+  }
+
+  .view-toggle-btn:hover:not(.active) {
+    background: var(--row-alt);
+    color: var(--text);
+  }
+
+  .sort-select {
+    padding: 6px 28px 6px 10px;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  .sort-select:focus { border-color: var(--gold); }
+
+  .filter-btn {
+    padding: 6px 16px;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--text);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .filter-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* ===================== MAIN CONTENT ===================== */
+  .main-content {
+    display: flex;
+    height: calc(100vh - 56px - 52px - 44px - 40px);
+    min-height: 600px;
+  }
+
+  /* ---- Left Panel ---- */
+  .left-panel {
+    width: 40%;
+    border-right: 1px solid var(--border);
+    background: var(--white);
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .campus-map {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background:
+      linear-gradient(rgba(168,111,61,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168,111,61,0.08) 1px, transparent 1px),
+      #f1ece4;
+    background-size: 30px 30px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .map-canvas {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  /* Stylized campus map drawing */
+  .map-road {
+    position: absolute;
+    background: #D8D3CB;
+  }
+
+  .map-building {
+    position: absolute;
+    border: 1.5px solid #8B8072;
+    background: rgba(139, 128, 114, 0.05);
+    font-family: var(--font-cn);
+    font-size: 9px;
+    color: #6B6158;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .map-pin {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: var(--gold);
+    border: 2px solid var(--white);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.16);
+    cursor: pointer;
+    transition: transform var(--transition);
+    z-index: 2;
+  }
+
+  .map-pin:hover { transform: rotate(-45deg) scale(1.15); }
+
+  .map-pin-count {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(45deg);
+    color: var(--white);
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .map-cluster {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    background: var(--dark);
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    z-index: 3;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    transition: transform var(--transition);
+  }
+
+  .map-cluster:hover { transform: scale(1.1); }
+
+  .map-label {
+    position: absolute;
+    font-family: var(--font-cn);
+    font-size: 10px;
+    color: #9B9183;
+    letter-spacing: 1px;
+    pointer-events: none;
+  }
+
+  /* Stats Dashboard */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-card {
+    background: var(--white);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: inset 0 0 0 1px rgba(168,111,61,0.06);
+  }
+
+  .stat-label {
+    font-family: var(--font-cn);
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .stat-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 24px;
+  }
+
+  .stat-bar {
+    width: 4px;
+    background: var(--gold);
+    border-radius: 1px 1px 0 0;
+    opacity: 0.6;
+  }
+
+  .stat-trend {
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .stat-trend.up { color: var(--success); }
+  .stat-trend.down { color: var(--danger); }
+
+  .stat-line {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 24px;
+  }
+
+  .stat-line-seg {
+    width: 3px;
+    background: var(--gold);
+    border-radius: 1px;
+    opacity: 0.5;
+  }
+
+  /* Filter Panel */
+  .filter-panel {
+    padding: 18px;
+  }
+
+  .filter-section {
+    margin-bottom: 18px;
+  }
+
+  .filter-section:last-child { margin-bottom: 0; }
+
+  .filter-section-title {
+    font-family: var(--font-cn);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+
+  .filter-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .filter-check {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .filter-check input[type="checkbox"] {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+    transition: all var(--transition);
+  }
+
+  .filter-check input[type="checkbox"]:checked {
+    background: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .filter-check input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--white);
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+  }
+
+  .range-slider {
+    position: relative;
+    height: 28px;
+    display: flex;
+    align-items: center;
+  }
+
+  .range-track {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    position: relative;
+  }
+
+  .range-fill {
+    position: absolute;
+    height: 100%;
+    background: var(--gold);
+    border-radius: 2px;
+    left: 10%;
+    right: 30%;
+  }
+
+  .range-thumb {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: var(--white);
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    transition: box-shadow var(--transition);
+  }
+
+  .range-thumb:hover { box-shadow: 0 0 0 4px var(--gold-light); }
+  .range-thumb.left { left: calc(10% - 7px); }
+  .range-thumb.right { left: calc(70% - 7px); }
+
+  .range-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .building-select {
+    width: 100%;
+    padding: 7px 10px;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .building-select:focus { border-color: var(--gold); }
+
+  /* ---- Right Panel ---- */
+  .right-panel {
+    width: 60%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+
+  .task-table-header {
+    display: grid;
+    grid-template-columns: 1fr 90px 72px 60px 130px 100px 56px 70px;
+    padding: 10px 20px;
+    background: var(--dark);
+    color: #AAA;
+    font-family: var(--font-cn);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .task-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .task-row {
+    display: grid;
+    grid-template-columns: 1fr 90px 72px 60px 130px 100px 56px 70px;
+    padding: 14px 20px;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+    border-left: 3px solid transparent;
+  }
+
+  .task-row:nth-child(odd) { background: var(--white); }
+  .task-row:nth-child(even) { background: var(--row-alt); }
+
+  .task-row:hover {
+    border-left-color: var(--gold);
+    background: rgba(168,111,61,0.08);
+  }
+
+  .task-row:hover .task-expand {
+    max-height: 60px;
+    opacity: 1;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .task-title {
+    font-family: var(--font-cn);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .task-category {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .cat-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .cat-delivery { background: #5B9BD5; }
+  .cat-food { background: #E8916C; }
+  .cat-carry { background: #7FB685; }
+  .cat-other { background: #B0A090; }
+
+  .task-reward {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .task-time {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .task-location {
+    font-family: var(--font-cn);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .task-user {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .task-user-name {
+    font-family: var(--font-cn);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .credit-bar {
+    width: 32px;
+    height: 4px;
+    background: #E0E0E0;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .credit-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .credit-high { background: var(--success); }
+  .credit-mid { background: var(--gold); }
+  .credit-low { background: var(--danger); }
+
+  .task-orders {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .task-action-btn {
+    padding: 5px 14px;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--gold);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--gold);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+
+  .task-action-btn:hover {
+    background: var(--gold);
+    color: var(--white);
+  }
+
+  /* Expandable detail */
+  .task-row-wrapper { position: relative; }
+
+  .task-expand {
+    grid-column: 1 / -1;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.25s ease;
+    font-family: var(--font-cn);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    border-top: 1px solid transparent;
+  }
+
+  .task-row:hover .task-expand {
+    border-top-color: var(--border);
+  }
+
+  .expand-detail {
+    display: flex;
+    gap: 24px;
+  }
+
+  .expand-desc { flex: 1; }
+  .expand-meta { font-size: 11px; color: #AAA; }
+
+  /* ===================== BOTTOM BAR ===================== */
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 32px;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+  }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .page-info {
+    font-family: var(--font-cn);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .page-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all var(--transition);
+  }
+
+  .page-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  .page-btn.active {
+    background: var(--dark);
+    border-color: var(--dark);
+    color: var(--white);
+  }
+
+  .page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .publish-btn {
+    padding: 10px 28px;
+    font-family: var(--font-cn);
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--gold);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all var(--transition);
+  }
+
+  .publish-btn:hover {
+    background: var(--gold-hover);
+    box-shadow: 0 4px 16px rgba(212, 165, 116, 0.35);
+  }
+
+  /* ===================== FOOTER ===================== */
+  .footer {
+    background: var(--dark-deep);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+
+  .footer-copy {
+    font-family: var(--font-cn);
+    color: #666;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 20px;
+  }
+
+  .footer-links a {
+    font-family: var(--font-cn);
+    color: #666;
+    text-decoration: none;
+    transition: color var(--transition);
+  }
+
+  .footer-links a:hover { color: var(--gold); }
+
+  /* ===================== ANIMATIONS ===================== */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .task-row {
+    animation: fadeIn 0.3s ease backwards;
+  }
+
+  .task-row:nth-child(1) { animation-delay: 0.02s; }
+  .task-row:nth-child(2) { animation-delay: 0.04s; }
+  .task-row:nth-child(3) { animation-delay: 0.06s; }
+  .task-row:nth-child(4) { animation-delay: 0.08s; }
+  .task-row:nth-child(5) { animation-delay: 0.10s; }
+  .task-row:nth-child(6) { animation-delay: 0.12s; }
+  .task-row:nth-child(7) { animation-delay: 0.14s; }
+  .task-row:nth-child(8) { animation-delay: 0.16s; }
+
+  .stat-card {
+    animation: fadeIn 0.4s ease backwards;
+  }
+  .stat-card:nth-child(1) { animation-delay: 0.1s; }
+  .stat-card:nth-child(2) { animation-delay: 0.15s; }
+  .stat-card:nth-child(3) { animation-delay: 0.2s; }
+  .stat-card:nth-child(4) { animation-delay: 0.25s; }
+
+  /* Gold pulse on pins */
+  @keyframes pinPulse {
+    0%, 100% { box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+    50% { box-shadow: 0 2px 12px rgba(212, 165, 116, 0.5); }
+  }
+
+  .map-pin { animation: pinPulse 3s ease-in-out infinite; }
+  .map-pin:nth-child(2) { animation-delay: 0.5s; }
+  .map-pin:nth-child(3) { animation-delay: 1s; }
+  .map-pin:nth-child(4) { animation-delay: 1.5s; }
+</style>
+</head>
+<body>
+
+<!-- ==================== TOP NAV ==================== -->
+<nav class="top-nav">
+  <div class="nav-brand">
+    <span class="nav-brand-en">CAMPUSMAST</span>
+    <span class="nav-brand-cn">校园万事达</span>
+  </div>
+
+  <div class="nav-search">
+    <input type="text" placeholder="搜索任务、技能、用户...">
+    <span class="nav-search-icon">&#x1F50D;</span>
+  </div>
+
+  <div class="nav-right">
+    <div class="nav-bell">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="nav-bell-badge">3</span>
+    </div>
+    <span class="nav-balance">&yen; 1,280.50</span>
+    <div class="nav-user">
+      <div class="nav-avatar">周</div>
+      <span class="nav-username">周嘉</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ==================== SUB NAV ==================== -->
+<div class="sub-nav">
+  <div class="sub-nav-left">
+    <h1 class="sub-nav-title">任务大厅</h1>
+    <span class="sub-nav-count">共 384 个待接任务</span>
+  </div>
+  <div class="sub-nav-right">
+    <div class="view-toggle">
+      <button class="view-toggle-btn active">列表</button>
+      <button class="view-toggle-btn">卡片</button>
+      <button class="view-toggle-btn">地图</button>
+    </div>
+    <select class="sort-select">
+      <option>按时间排序</option>
+      <option>按赏金排序</option>
+      <option>按距离排序</option>
+      <option>按信用排序</option>
+    </select>
+    <button class="filter-btn">&#9881; 高级筛选</button>
+  </div>
+</div>
+
+<!-- ==================== MAIN CONTENT ==================== -->
+<div class="main-content">
+
+  <!-- ---- Left Panel ---- -->
+  <div class="left-panel">
+    <!-- Campus Map -->
+    <div class="campus-map">
+      <div class="map-canvas">
+        <!-- Roads -->
+        <div class="map-road" style="left:20%;top:45%;width:60%;height:2px;"></div>
+        <div class="map-road" style="left:40%;top:15%;width:2px;height:70%;"></div>
+        <div class="map-road" style="left:15%;top:30%;width:70%;height:1.5px;opacity:0.5;"></div>
+        <div class="map-road" style="left:60%;top:10%;width:1.5px;height:80%;opacity:0.5;"></div>
+
+        <!-- Buildings -->
+        <div class="map-building" style="left:8%;top:12%;width:18%;height:14%;">学生公寓区</div>
+        <div class="map-building" style="left:32%;top:8%;width:14%;height:10%;">教学楼</div>
+        <div class="map-building" style="left:55%;top:12%;width:16%;height:12%;">图书馆</div>
+        <div class="map-building" style="left:78%;top:10%;width:14%;height:10%;">体育馆</div>
+        <div class="map-building" style="left:10%;top:52%;width:20%;height:14%;">食堂</div>
+        <div class="map-building" style="left:35%;top:55%;width:12%;height:10%;">学活</div>
+        <div class="map-building" style="left:55%;top:50%;width:18%;height:14%;">实验楼</div>
+        <div class="map-building" style="left:80%;top:55%;width:14%;height:12%;">行政楼</div>
+        <div class="map-building" style="left:15%;top:78%;width:22%;height:10%;">菜鸟驿站</div>
+        <div class="map-building" style="left:50%;top:75%;width:20%;height:12%;">创新楼</div>
+
+        <!-- Labels -->
+        <div class="map-label" style="left:4%;top:3%;">西土城校区</div>
+        <div class="map-label" style="right:4%;bottom:4%;text-align:right;">北京邮电大学</div>
+
+        <!-- Task Pins -->
+        <div class="map-pin" style="left:14%;top:16%;"><span class="map-pin-count">3</span></div>
+        <div class="map-pin" style="left:36%;top:58%;"><span class="map-pin-count">1</span></div>
+        <div class="map-pin" style="left:62%;top:15%;"><span class="map-pin-count">2</span></div>
+        <div class="map-pin" style="left:22%;top:82%;"><span class="map-pin-count">4</span></div>
+
+        <!-- Clusters -->
+        <div class="map-cluster" style="left:42%;top:32%;">12</div>
+        <div class="map-cluster" style="left:68%;top:60%;">8</div>
+      </div>
+    </div>
+
+    <!-- Stats Dashboard -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">今日发布</span>
+        <div class="stat-row">
+          <span class="stat-value">128</span>
+          <div class="stat-chart">
+            <div class="stat-bar" style="height:8px;"></div>
+            <div class="stat-bar" style="height:14px;"></div>
+            <div class="stat-bar" style="height:10px;"></div>
+            <div class="stat-bar" style="height:18px;"></div>
+            <div class="stat-bar" style="height:12px;"></div>
+            <div class="stat-bar" style="height:22px;"></div>
+            <div class="stat-bar" style="height:24px;opacity:1;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">成交额</span>
+        <div class="stat-row">
+          <span class="stat-value">&yen;12,840</span>
+          <span class="stat-trend up">&#9650; 18%</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">活跃用户</span>
+        <div class="stat-row">
+          <span class="stat-value">256</span>
+          <div class="stat-line">
+            <div class="stat-line-seg" style="height:10px;"></div>
+            <div class="stat-line-seg" style="height:14px;"></div>
+            <div class="stat-line-seg" style="height:12px;"></div>
+            <div class="stat-line-seg" style="height:18px;"></div>
+            <div class="stat-line-seg" style="height:16px;"></div>
+            <div class="stat-line-seg" style="height:20px;"></div>
+            <div class="stat-line-seg" style="height:22px;"></div>
+            <div class="stat-line-seg" style="height:19px;"></div>
+            <div class="stat-line-seg" style="height:24px;opacity:1;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">平均赏金</span>
+        <div class="stat-row">
+          <span class="stat-value">&yen;15.80</span>
+          <span class="stat-trend down">&#9660; 3%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Panel -->
+    <div class="filter-panel">
+      <div class="filter-section">
+        <div class="filter-section-title">任务类别</div>
+        <div class="filter-checks">
+          <label class="filter-check"><input type="checkbox" checked> 代取快递</label>
+          <label class="filter-check"><input type="checkbox" checked> 代买餐食</label>
+          <label class="filter-check"><input type="checkbox" checked> 搬运重物</label>
+          <label class="filter-check"><input type="checkbox"> 跑腿代办</label>
+          <label class="filter-check"><input type="checkbox" checked> 其他</label>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-section-title">赏金范围</div>
+        <div class="range-slider">
+          <div class="range-track">
+            <div class="range-fill"></div>
+          </div>
+          <div class="range-thumb left"></div>
+          <div class="range-thumb right"></div>
+        </div>
+        <div class="range-labels">
+          <span>&yen;5</span>
+          <span>&yen;35</span>
+          <span>&yen;100</span>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-section-title">指定地点</div>
+        <select class="building-select">
+          <option>全部地点</option>
+          <option>学生1号公寓</option>
+          <option>学生3号公寓</option>
+          <option>学生10号公寓</option>
+          <option>教三楼</option>
+          <option>教四楼</option>
+          <option>学活</option>
+          <option>西土城校区食堂</option>
+          <option>西土城校区菜鸟驿站</option>
+          <option>图书馆</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---- Right Panel ---- -->
+  <div class="right-panel">
+    <div class="task-table-header">
+      <span>任务名称</span>
+      <span>分类</span>
+      <span>赏金</span>
+      <span>时限</span>
+      <span>地点</span>
+      <span>发布者</span>
+      <span>单量</span>
+      <span>操作</span>
+    </div>
+    <div class="task-list">
+
+      <!-- Row 1 -->
+      <div class="task-row">
+        <span class="task-title">帮取顺丰快递 学1公寓</span>
+        <span class="task-category"><span class="cat-dot cat-delivery"></span>代取快递</span>
+        <span class="task-reward">&yen;8.00</span>
+        <span class="task-time">2h</span>
+        <span class="task-location">学生1号公寓</span>
+        <div class="task-user">
+          <span class="task-user-name">李同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-high" style="width:95%;"></div></div>
+        </div>
+        <span class="task-orders">24次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">顺丰快递一个中等包裹，取件码 3-12-5678，送到学1公寓 512 室门口即可。</span>
+            <span class="expand-meta">信用分 95 | 注册 8 个月</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="task-row">
+        <span class="task-title">午餐代买 教三楼送达</span>
+        <span class="task-category"><span class="cat-dot cat-food"></span>代买餐食</span>
+        <span class="task-reward">&yen;12.00</span>
+        <span class="task-time">45min</span>
+        <span class="task-location">教三楼</span>
+        <div class="task-user">
+          <span class="task-user-name">王同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-mid" style="width:88%;"></div></div>
+        </div>
+        <span class="task-orders">31次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">教三楼 303 教室，需要一份黄焖鸡米饭 + 一杯柠檬水，食堂二楼购买。</span>
+            <span class="expand-meta">信用分 88 | 注册 1 年</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3 -->
+      <div class="task-row">
+        <span class="task-title">搬运书籍到图书馆</span>
+        <span class="task-category"><span class="cat-dot cat-carry"></span>搬运重物</span>
+        <span class="task-reward">&yen;25.00</span>
+        <span class="task-time">3h</span>
+        <span class="task-location">学活</span>
+        <div class="task-user">
+          <span class="task-user-name">张同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-high" style="width:92%;"></div></div>
+        </div>
+        <span class="task-orders">15次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">学活仓库约 3 箱书（每箱约 15 本），搬运到图书馆一楼服务台，有推车可借用。</span>
+            <span class="expand-meta">信用分 92 | 注册 6 个月</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4 -->
+      <div class="task-row">
+        <span class="task-title">取中通快递 菜鸟驿站</span>
+        <span class="task-category"><span class="cat-dot cat-delivery"></span>代取快递</span>
+        <span class="task-reward">&yen;6.00</span>
+        <span class="task-time">5h</span>
+        <span class="task-location">西土城校区菜鸟驿站</span>
+        <div class="task-user">
+          <span class="task-user-name">赵同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-mid" style="width:78%;"></div></div>
+        </div>
+        <span class="task-orders">42次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">中通快递一个小件，取件码 6-08-2341，送到学5公寓 307 室。时间宽裕不急。</span>
+            <span class="expand-meta">信用分 78 | 注册 2 年</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 5 -->
+      <div class="task-row">
+        <span class="task-title">代买咖啡 星巴克</span>
+        <span class="task-category"><span class="cat-dot cat-food"></span>代买餐食</span>
+        <span class="task-reward">&yen;15.00</span>
+        <span class="task-time">1h</span>
+        <span class="task-location">西土城校区食堂</span>
+        <div class="task-user">
+          <span class="task-user-name">刘同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-high" style="width:96%;"></div></div>
+        </div>
+        <span class="task-orders">8次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">星巴克大杯冰美式 + 中杯拿铁（少糖），送到食堂对面的创新楼 201 即可。</span>
+            <span class="expand-meta">信用分 96 | 注册 3 个月</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 6 -->
+      <div class="task-row">
+        <span class="task-title">帮搬宿舍 大件行李</span>
+        <span class="task-category"><span class="cat-dot cat-carry"></span>搬运重物</span>
+        <span class="task-reward">&yen;50.00</span>
+        <span class="task-time">6h</span>
+        <span class="task-location">学生10号公寓</span>
+        <div class="task-user">
+          <span class="task-user-name">陈同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-mid" style="width:85%;"></div></div>
+        </div>
+        <span class="task-orders">56次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">从学10公寓搬到学3公寓，两个大行李箱 + 若干纸箱，需要体力好的同学，可两人合作。</span>
+            <span class="expand-meta">信用分 85 | 注册 1.5 年</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 7 -->
+      <div class="task-row">
+        <span class="task-title">代打印论文 30页</span>
+        <span class="task-category"><span class="cat-dot cat-other"></span>其他</span>
+        <span class="task-reward">&yen;10.00</span>
+        <span class="task-time">4h</span>
+        <span class="task-location">教四楼</span>
+        <div class="task-user">
+          <span class="task-user-name">孙同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-high" style="width:90%;"></div></div>
+        </div>
+        <span class="task-orders">19次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">PDF 文件已发到邮箱，黑白双面打印 30 页，装订好送到教四楼 408 办公室。</span>
+            <span class="expand-meta">信用分 90 | 注册 10 个月</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 8 -->
+      <div class="task-row">
+        <span class="task-title">取京东快递 两个包裹</span>
+        <span class="task-category"><span class="cat-dot cat-delivery"></span>代取快递</span>
+        <span class="task-reward">&yen;10.00</span>
+        <span class="task-time">2.5h</span>
+        <span class="task-location">学生3号公寓</span>
+        <div class="task-user">
+          <span class="task-user-name">马同学</span>
+          <div class="credit-bar"><div class="credit-fill credit-mid" style="width:82%;"></div></div>
+        </div>
+        <span class="task-orders">27次</span>
+        <button class="task-action-btn">接单</button>
+        <div class="task-expand">
+          <div class="expand-detail">
+            <span class="expand-desc">京东两个包裹（一大一小），取件码会私信发送，送到学3公寓 615 室。</span>
+            <span class="expand-meta">信用分 82 | 注册 4 个月</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== BOTTOM BAR ==================== -->
+<div class="bottom-bar">
+  <div class="pagination">
+    <button class="page-btn" disabled>&#8249;</button>
+    <button class="page-btn active">1</button>
+    <button class="page-btn">2</button>
+    <button class="page-btn">3</button>
+    <button class="page-btn">4</button>
+    <button class="page-btn">5</button>
+    <span class="page-info">...</span>
+    <button class="page-btn">48</button>
+    <button class="page-btn">&#8250;</button>
+    <span class="page-info" style="margin-left:8px;">第 1 页 / 共 48 页</span>
+  </div>
+  <button class="publish-btn">发布任务</button>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="footer">
+  <span class="footer-copy">&copy; 2026 CampusMast 校园万事达 | 北京邮电大学</span>
+  <div class="footer-links">
+    <a href="#">平台协议</a>
+    <a href="#">帮助中心</a>
+    <a href="#">数据统计</a>
+  </div>
+</footer>
+
+</body>
+</html>

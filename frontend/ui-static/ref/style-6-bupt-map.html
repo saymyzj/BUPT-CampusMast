@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusMast - 北邮地图高保真原型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  /*
+    文件说明：
+    这是 CampusMast 的“地图即主页”高保真静态原型。
+    页面不再把 JPG 当成背景叠热点，而是用单个 SVG 重建北邮西土城校区的矢量底图，
+    并通过数据驱动的方式渲染：
+    1. 楼宇块面与标签
+    2. 任务点位、聚合数和悬停摘要
+    3. 点击固定详情面板
+    4. 核心楼宇楼层与楼内示意
+    该文件用于视觉与交互定稿，后续可较平滑迁移到 Vue。
+  */
+
+  :root {
+    --ink-950: #11141b;
+    --ink-900: #1c2330;
+    --ink-700: #405068;
+    --ink-500: #728097;
+    --ink-300: #c4ccda;
+    --paper: #f4f1eb;
+    --paper-strong: #ece6db;
+    --canvas: #dbe8ea;
+    --road: #b9c3c8;
+    --road-strong: #98a7ae;
+    --border: rgba(31, 42, 58, 0.18);
+    --label-bg: rgba(255, 252, 246, 0.92);
+    --panel-bg: rgba(255, 251, 245, 0.94);
+    --shadow-soft: 0 16px 42px rgba(26, 36, 49, 0.12);
+    --shadow-card: 0 22px 48px rgba(20, 29, 40, 0.18);
+    --blue: #4970c8;
+    --rose: #d87379;
+    --amber: #d6a74f;
+    --olive: #89a35a;
+    --orange: #dc8b59;
+    --gray-zone: #d2d0cc;
+    --success: #6ca365;
+    --danger: #ca6155;
+    --carry: #d6a74f;
+    --food: #d87379;
+    --delivery: #4970c8;
+    --other: #6c8c78;
+    --radius-xs: 10px;
+    --radius-sm: 16px;
+    --radius-md: 22px;
+    --radius-lg: 28px;
+    --toolbar-h: 72px;
+    --floor-panel-w: 356px;
+    --map-w: 1200;
+    --map-h: 860;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    font-family: "Manrope", "Noto Sans SC", sans-serif;
+    color: var(--ink-900);
+    background:
+      radial-gradient(circle at top left, rgba(73, 112, 200, 0.08), transparent 24%),
+      radial-gradient(circle at bottom right, rgba(214, 167, 79, 0.08), transparent 30%),
+      linear-gradient(180deg, #f7f4ef 0%, #efe9df 100%);
+    overflow: hidden;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  .app {
+    position: relative;
+    height: 100%;
+    padding: 18px;
+  }
+
+  .hud {
+    position: absolute;
+    inset: 18px 18px auto;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 18px;
+    min-height: var(--toolbar-h);
+  }
+
+  .hud-card {
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: rgba(255, 251, 245, 0.84);
+    border: 1px solid rgba(31, 42, 58, 0.1);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-radius: 999px;
+  }
+
+  .brand-mark {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: var(--ink-950);
+    color: #fff;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .brand-meta strong {
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+
+  .brand-meta span {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--ink-500);
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 999px;
+  }
+
+  .toolbar-chip {
+    border: none;
+    background: transparent;
+    color: var(--ink-500);
+    padding: 10px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: 180ms ease;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .toolbar-chip:hover {
+    background: rgba(17, 20, 27, 0.06);
+    color: var(--ink-900);
+  }
+
+  .toolbar-chip.active {
+    background: var(--ink-950);
+    color: #fff;
+  }
+
+  .status-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 999px;
+  }
+
+  .status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 6px rgba(108, 163, 101, 0.12);
+  }
+
+  .status-label {
+    font-size: 12px;
+    color: var(--ink-500);
+  }
+
+  .status-value {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--ink-900);
+  }
+
+  .map-shell {
+    position: absolute;
+    inset: 108px 18px 18px;
+    border-radius: 34px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #e5eff0 0%, #d6e4e7 100%);
+    box-shadow: var(--shadow-card);
+    border: 1px solid rgba(31, 42, 58, 0.08);
+  }
+
+  .map-stage {
+    position: absolute;
+    inset: 0;
+  }
+
+  .map-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .task-layer,
+  .detail-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .beacon {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+
+  .beacon-btn {
+    position: relative;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+  }
+
+  .beacon-ring {
+    position: absolute;
+    inset: 5px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: 180ms ease;
+  }
+
+  .beacon:hover .beacon-ring,
+  .beacon.active .beacon-ring {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  .beacon-core {
+    position: relative;
+    z-index: 2;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 3px solid #fff;
+    box-shadow: 0 10px 18px rgba(17, 20, 27, 0.22);
+    transition: transform 180ms ease;
+  }
+
+  .beacon:hover .beacon-core,
+  .beacon.active .beacon-core {
+    transform: scale(1.14);
+  }
+
+  .beacon-pulse {
+    position: absolute;
+    inset: 8px;
+    border-radius: 999px;
+    opacity: 0.32;
+    animation: pulse-ring 2.4s ease-out infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.86); opacity: 0.28; }
+    70% { transform: scale(1.7); opacity: 0; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+
+  .beacon-summary {
+    position: absolute;
+    left: 50%;
+    top: -12px;
+    transform: translate(-50%, -100%);
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: var(--label-bg);
+    border: 1px solid rgba(31, 42, 58, 0.12);
+    box-shadow: 0 10px 20px rgba(17, 20, 27, 0.12);
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--ink-900);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    opacity: 0.94;
+    transition: 180ms ease;
+  }
+
+  .beacon:hover .beacon-summary,
+  .beacon.active .beacon-summary {
+    transform: translate(-50%, calc(-100% - 2px));
+    opacity: 1;
+  }
+
+  .beacon-summary em {
+    font-style: normal;
+    color: var(--ink-500);
+    font-weight: 700;
+  }
+
+  .category-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .cluster {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 42px;
+    height: 42px;
+    border-radius: 16px;
+    background: rgba(255, 251, 245, 0.92);
+    border: 1px solid rgba(31, 42, 58, 0.14);
+    box-shadow: 0 12px 22px rgba(17, 20, 27, 0.14);
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--ink-900);
+  }
+
+  .detail-card {
+    position: absolute;
+    width: 298px;
+    padding: 18px;
+    border-radius: var(--radius-md);
+    background: var(--panel-bg);
+    border: 1px solid rgba(31, 42, 58, 0.12);
+    box-shadow: 0 20px 40px rgba(17, 20, 27, 0.18);
+    pointer-events: auto;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transform-origin: bottom center;
+    animation: detail-in 180ms ease;
+  }
+
+  @keyframes detail-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .detail-kicker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .detail-kicker span {
+    font-size: 11px;
+    color: var(--ink-500);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+
+  .detail-reward {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+  }
+
+  .detail-title {
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.32;
+    margin-bottom: 10px;
+  }
+
+  .detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .meta-pill {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(17, 20, 27, 0.05);
+    color: var(--ink-700);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .meta-pill.urgent {
+    background: rgba(202, 97, 85, 0.12);
+    color: var(--danger);
+  }
+
+  .detail-desc {
+    font-size: 13px;
+    line-height: 1.58;
+    color: var(--ink-700);
+    margin-bottom: 14px;
+  }
+
+  .detail-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .detail-btn {
+    flex: 1;
+    border: none;
+    border-radius: 14px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 900;
+    transition: 160ms ease;
+  }
+
+  .detail-btn.primary {
+    background: var(--ink-950);
+    color: #fff;
+  }
+
+  .detail-btn.secondary {
+    background: rgba(17, 20, 27, 0.06);
+    color: var(--ink-900);
+  }
+
+  .detail-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .map-legend {
+    position: absolute;
+    left: 22px;
+    bottom: 22px;
+    z-index: 24;
+    padding: 14px 16px;
+    border-radius: 20px;
+    background: rgba(255, 251, 245, 0.86);
+    border: 1px solid rgba(31, 42, 58, 0.1);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: grid;
+    gap: 8px;
+  }
+
+  .legend-title {
+    font-size: 11px;
+    color: var(--ink-500);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-900);
+  }
+
+  .building-chip {
+    position: absolute;
+    min-width: 96px;
+    transform: translate(-50%, -50%);
+    padding: 8px 12px;
+    border-radius: 16px;
+    background: rgba(255, 251, 245, 0.72);
+    border: 1px solid rgba(31, 42, 58, 0.1);
+    box-shadow: 0 10px 18px rgba(17, 20, 27, 0.08);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: 180ms ease;
+  }
+
+  .building-chip:hover,
+  .building-chip.active {
+    background: rgba(255, 251, 245, 0.94);
+    transform: translate(-50%, calc(-50% - 2px));
+    box-shadow: 0 14px 24px rgba(17, 20, 27, 0.14);
+  }
+
+  .building-chip strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 900;
+    color: var(--ink-900);
+  }
+
+  .building-chip span {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--ink-500);
+    font-weight: 700;
+  }
+
+  .map-note {
+    position: absolute;
+    right: 22px;
+    bottom: 22px;
+    z-index: 24;
+    padding: 14px 16px;
+    border-radius: 20px;
+    background: rgba(17, 20, 27, 0.78);
+    color: rgba(255, 255, 255, 0.92);
+    width: 236px;
+    box-shadow: 0 18px 30px rgba(17, 20, 27, 0.24);
+  }
+
+  .map-note strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 900;
+    margin-bottom: 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .map-note p {
+    font-size: 12px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.74);
+  }
+
+  .floor-panel {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    bottom: 18px;
+    width: var(--floor-panel-w);
+    z-index: 40;
+    border-radius: 30px;
+    background: rgba(255, 251, 245, 0.94);
+    border: 1px solid rgba(31, 42, 58, 0.12);
+    box-shadow: 0 26px 50px rgba(17, 20, 27, 0.2);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateX(calc(100% + 24px));
+    transition: transform 220ms ease;
+  }
+
+  .floor-panel.open {
+    transform: translateX(0);
+  }
+
+  .panel-header {
+    padding: 22px 22px 16px;
+    border-bottom: 1px solid rgba(31, 42, 58, 0.08);
+  }
+
+  .panel-kicker {
+    font-size: 11px;
+    color: var(--ink-500);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 900;
+  }
+
+  .panel-title-row {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .panel-title {
+    font-size: 24px;
+    font-weight: 900;
+    line-height: 1.12;
+    letter-spacing: -0.05em;
+  }
+
+  .panel-close {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    border: none;
+    background: rgba(17, 20, 27, 0.06);
+    color: var(--ink-900);
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .panel-summary {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--ink-700);
+    line-height: 1.6;
+  }
+
+  .floor-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 18px 22px 0;
+    flex-wrap: wrap;
+  }
+
+  .floor-tab {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(17, 20, 27, 0.06);
+    color: var(--ink-700);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    transition: 160ms ease;
+  }
+
+  .floor-tab.active {
+    background: var(--ink-950);
+    color: #fff;
+  }
+
+  .panel-body {
+    padding: 18px 22px 22px;
+    overflow-y: auto;
+    display: grid;
+    gap: 16px;
+  }
+
+  .panel-body::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .panel-body::-webkit-scrollbar-thumb {
+    background: rgba(31, 42, 58, 0.14);
+    border-radius: 999px;
+  }
+
+  .floor-meta {
+    display: grid;
+    gap: 10px;
+  }
+
+  .floor-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .floor-badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(17, 20, 27, 0.05);
+    color: var(--ink-700);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .floor-desc {
+    font-size: 13px;
+    color: var(--ink-700);
+    line-height: 1.6;
+  }
+
+  .floor-map-card {
+    padding: 14px;
+    border-radius: 22px;
+    background: rgba(219, 232, 234, 0.48);
+    border: 1px solid rgba(31, 42, 58, 0.08);
+  }
+
+  .floor-map-card svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .poi-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .poi-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.66);
+    border: 1px solid rgba(31, 42, 58, 0.06);
+  }
+
+  .poi-marker {
+    width: 10px;
+    height: 10px;
+    margin-top: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .poi-item strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 900;
+    color: var(--ink-900);
+  }
+
+  .poi-item span {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--ink-700);
+    line-height: 1.5;
+  }
+
+  .mobile-tip {
+    display: none;
+  }
+
+  .type-delivery { color: var(--delivery); }
+  .type-food { color: var(--food); }
+  .type-carry { color: var(--carry); }
+  .type-other { color: var(--other); }
+
+  .bg-delivery { background: var(--delivery); }
+  .bg-food { background: var(--food); }
+  .bg-carry { background: var(--carry); }
+  .bg-other { background: var(--other); }
+
+  @media (max-width: 1100px) {
+    .hud {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .status-group {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .map-shell {
+      inset: 164px 12px 12px;
+    }
+
+    .floor-panel {
+      top: auto;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      width: auto;
+      max-height: 62vh;
+      border-radius: 28px 28px 20px 20px;
+      transform: translateY(calc(100% + 24px));
+    }
+
+    .floor-panel.open {
+      transform: translateY(0);
+    }
+
+    .mobile-tip {
+      display: block;
+      position: absolute;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      z-index: 25;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(17, 20, 27, 0.72);
+      color: rgba(255, 255, 255, 0.84);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="hud">
+      <div class="brand hud-card">
+        <div class="brand-mark">CM</div>
+        <div class="brand-meta">
+          <strong>CampusMast 地图中枢</strong>
+          <span>北邮西土城校区 · 任务概览全部压在地图上</span>
+        </div>
+      </div>
+
+      <div class="toolbar hud-card" id="toolbar"></div>
+
+      <div class="status-group">
+        <div class="status-pill hud-card">
+          <span class="status-dot"></span>
+          <div>
+            <div class="status-label">实时在线任务</div>
+            <div class="status-value" id="liveCount">18 个地图点</div>
+          </div>
+        </div>
+        <div class="status-pill hud-card">
+          <div>
+            <div class="status-label">钱包</div>
+            <div class="status-value">¥ 328.00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="map-shell">
+      <div class="map-stage">
+        <svg class="map-svg" viewBox="0 0 1200 860" preserveAspectRatio="xMidYMid meet" aria-label="北邮西土城校区地图">
+          <defs>
+            <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#162130" flood-opacity="0.12"></feDropShadow>
+            </filter>
+          </defs>
+          <g id="mapRoot"></g>
+        </svg>
+
+        <div class="overlay">
+          <div class="task-layer" id="taskLayer"></div>
+          <div class="detail-layer" id="detailLayer"></div>
+          <div id="buildingLayer"></div>
+        </div>
+      </div>
+
+      <div class="map-legend">
+        <div class="legend-title">任务图例</div>
+        <div class="legend-row"><span class="category-dot bg-delivery"></span>代取/代送</div>
+        <div class="legend-row"><span class="category-dot bg-food"></span>代买餐食</div>
+        <div class="legend-row"><span class="category-dot bg-carry"></span>搬运协助</div>
+        <div class="legend-row"><span class="category-dot bg-other"></span>占座/打印/其他</div>
+      </div>
+
+      <div class="map-note">
+        <strong>当前交互基线</strong>
+        <p>悬停只看摘要，点击才固定详情；点击楼宇或详情中的“查看楼层”会打开右侧楼层浮层，保持地图上下文不丢失。</p>
+      </div>
+
+      <div class="mobile-tip">移动端后续改为点击底部抽屉，本版仅预留交互逻辑</div>
+    </div>
+
+    <aside class="floor-panel" id="floorPanel" aria-hidden="true">
+      <div class="panel-header">
+        <div class="panel-kicker">核心楼宇楼层示意</div>
+        <div class="panel-title-row">
+          <div class="panel-title" id="panelTitle">楼宇详情</div>
+          <button class="panel-close" id="panelClose" aria-label="关闭楼层面板">×</button>
+        </div>
+        <p class="panel-summary" id="panelSummary">点击地图上的核心楼宇或任务详情里的“查看楼层”，即可查看示意楼层和关键区域。</p>
+      </div>
+
+      <div class="floor-tabs" id="floorTabs"></div>
+      <div class="panel-body" id="panelBody"></div>
+    </aside>
+  </div>
+
+<script>
+  const MAP = { width: 1200, height: 860 };
+
+  const filters = [
+    { id: "all", label: "全部地图点位" },
+    { id: "fast", label: "顺路极速单" },
+    { id: "high", label: "高额悬赏" }
+  ];
+
+  const roads = {
+    horizontal: [
+      { x: 120, y: 40, w: 960, h: 14, label: "师大北路", labelX: 670, labelY: 26, size: 22 },
+      { x: 120, y: 804, w: 960, h: 14, label: "学院南路", labelX: 600, labelY: 844, size: 24 },
+      { x: 152, y: 116, w: 882, h: 12, label: "北门内环", labelX: 600, labelY: 104, size: 12, muted: true },
+      { x: 152, y: 730, w: 882, h: 12, label: "中门内环", labelX: 600, labelY: 722, size: 12, muted: true }
+    ],
+    vertical: [
+      { x: 48, y: 80, w: 16, h: 700, label: "西土城路", labelX: 18, labelY: 420, rotate: -90, size: 24 },
+      { x: 1112, y: 70, w: 16, h: 712, label: "杏坛路", labelX: 1170, labelY: 430, rotate: 90, size: 24 },
+      { x: 212, y: 128, w: 14, h: 600 },
+      { x: 512, y: 128, w: 14, h: 600 },
+      { x: 790, y: 128, w: 14, h: 600 },
+      { x: 1016, y: 128, w: 14, h: 600 }
+    ],
+    gates: [
+      { x: 600, y: 118, w: 52, h: 14, label: "北门" },
+      { x: 108, y: 554, w: 14, h: 66, label: "西门", vertical: true },
+      { x: 1120, y: 426, w: 14, h: 66, label: "东门", vertical: true },
+      { x: 602, y: 810, w: 52, h: 14, label: "南门" }
+    ]
+  };
+
+  const buildings = [
+    {
+      id: "j1",
+      name: "教一楼",
+      abbr: "教一",
+      type: "teaching",
+      core: true,
+      x: 520,
+      y: 456,
+      w: 182,
+      h: 106,
+      labelPosition: { x: 612, y: 508 },
+      chipPosition: { x: 610, y: 514 },
+      summary: "教学核心区，机房、普通教室和公共讨论空间都集中在这里。"
+    },
+    {
+      id: "j2",
+      name: "教二楼",
+      abbr: "教二",
+      type: "teaching",
+      core: true,
+      x: 524,
+      y: 626,
+      w: 178,
+      h: 96,
+      labelPosition: { x: 614, y: 674 },
+      chipPosition: { x: 612, y: 678 },
+      summary: "中门附近的教学楼，常见晚课、机房课和大班课。"
+    },
+    {
+      id: "j3",
+      name: "教三楼",
+      abbr: "教三",
+      type: "teaching",
+      core: true,
+      x: 232,
+      y: 626,
+      w: 214,
+      h: 96,
+      labelPosition: { x: 338, y: 674 },
+      chipPosition: { x: 338, y: 680 },
+      summary: "西区教学核心，标准教室和考试教室较多。"
+    },
+    {
+      id: "j4",
+      name: "教四楼",
+      abbr: "教四",
+      type: "teaching",
+      core: true,
+      x: 232,
+      y: 432,
+      w: 214,
+      h: 104,
+      labelPosition: { x: 338, y: 484 },
+      chipPosition: { x: 338, y: 488 },
+      summary: "靠西门的教学楼，打印、赶作业和临时找同学最常发生在这块。"
+    },
+    {
+      id: "main",
+      name: "主楼",
+      abbr: "主楼",
+      type: "admin",
+      core: true,
+      x: 606,
+      y: 544,
+      w: 146,
+      h: 124,
+      labelPosition: { x: 678, y: 608 },
+      chipPosition: { x: 680, y: 612 },
+      summary: "校内高频导航锚点，办公、教室和公共服务混合。"
+    },
+    {
+      id: "library",
+      name: "图书馆",
+      abbr: "图书馆",
+      type: "library",
+      core: true,
+      x: 606,
+      y: 264,
+      w: 126,
+      h: 134,
+      labelPosition: { x: 670, y: 332 },
+      chipPosition: { x: 676, y: 336 },
+      summary: "自习、借阅和占座相关需求的高发楼宇。"
+    },
+    {
+      id: "research",
+      name: "科研楼",
+      abbr: "科研楼",
+      type: "research",
+      core: true,
+      x: 834,
+      y: 152,
+      w: 132,
+      h: 122,
+      labelPosition: { x: 900, y: 214 },
+      chipPosition: { x: 900, y: 214 },
+      summary: "实验与办公混合楼宇，任务往往和送物、取件、找老师相关。"
+    },
+    {
+      id: "canteen",
+      name: "学生食堂",
+      abbr: "食堂",
+      type: "canteen",
+      core: true,
+      x: 842,
+      y: 272,
+      w: 130,
+      h: 90,
+      labelPosition: { x: 908, y: 316 },
+      chipPosition: { x: 908, y: 318 },
+      summary: "餐食类任务的核心发单区，二层和三层最活跃。"
+    },
+    { id: "xue10", name: "学十公寓", type: "dorm", x: 268, y: 126, w: 144, h: 86, labelPosition: { x: 340, y: 168 } },
+    { id: "xue11", name: "学十一公寓", type: "dorm", x: 158, y: 92, w: 94, h: 50, labelPosition: { x: 206, y: 116 } },
+    { id: "xue9", name: "学九公寓", type: "dorm", x: 158, y: 146, w: 86, h: 44, labelPosition: { x: 200, y: 168 } },
+    { id: "xue5", name: "学五公寓", type: "dorm", x: 188, y: 222, w: 118, h: 56, labelPosition: { x: 246, y: 250 } },
+    { id: "xue8", name: "学八公寓", type: "dorm", x: 324, y: 222, w: 112, h: 56, labelPosition: { x: 380, y: 250 } },
+    { id: "xue1", name: "学一公寓", type: "dorm", x: 190, y: 362, w: 108, h: 52, labelPosition: { x: 244, y: 388 } },
+    { id: "xue2", name: "学二公寓", type: "dorm", x: 324, y: 362, w: 112, h: 52, labelPosition: { x: 380, y: 388 } },
+    { id: "xue3", name: "学三公寓", type: "dorm", x: 188, y: 292, w: 118, h: 54, labelPosition: { x: 246, y: 318 } },
+    { id: "xue4", name: "学四公寓", type: "dorm", x: 324, y: 292, w: 112, h: 54, labelPosition: { x: 380, y: 318 } },
+    { id: "kuaidi", name: "快递站", type: "service", x: 548, y: 84, w: 118, h: 42, labelPosition: { x: 608, y: 106 } },
+    { id: "jingguan", name: "经管楼", type: "teaching2", x: 556, y: 128, w: 114, h: 82, labelPosition: { x: 614, y: 170 } },
+    { id: "student-center", name: "学生活动中心", type: "service", x: 552, y: 218, w: 112, h: 86, labelPosition: { x: 608, y: 260 } },
+    { id: "archive", name: "档案馆", type: "service", x: 662, y: 232, w: 108, h: 52, labelPosition: { x: 716, y: 258 } },
+    { id: "xiaosonglin", name: "小松林", type: "green", x: 544, y: 336, w: 96, h: 52, labelPosition: { x: 592, y: 362 } },
+    { id: "shiguang", name: "时光广场", type: "green", x: 556, y: 396, w: 88, h: 48, labelPosition: { x: 600, y: 420 } },
+    { id: "science-hall", name: "科学会堂", type: "service", x: 838, y: 548, w: 132, h: 110, labelPosition: { x: 904, y: 602 } },
+    { id: "stadium", name: "体育场", type: "sports", x: 1016, y: 498, w: 112, h: 230, labelPosition: { x: 1072, y: 612 } },
+    { id: "gym", name: "体育馆", type: "sports", x: 1000, y: 450, w: 92, h: 104, labelPosition: { x: 1046, y: 502 } },
+    { id: "pool", name: "游泳馆", type: "sports", x: 1090, y: 450, w: 42, h: 120, labelPosition: { x: 1110, y: 510 } },
+    { id: "xue29", name: "学29公寓", type: "dorm", x: 1036, y: 352, w: 64, h: 106, labelPosition: { x: 1068, y: 406 } },
+    { id: "home-north", name: "家属区", type: "residential", x: 882, y: 86, w: 192, h: 80, labelPosition: { x: 978, y: 126 } },
+    { id: "home-south", name: "家属区", type: "residential", x: 768, y: 724, w: 298, h: 84, labelPosition: { x: 918, y: 766 } }
+  ];
+
+  const taskPins = [
+    {
+      id: "task-j4-print",
+      buildingId: "j4",
+      floorId: "f3",
+      filter: "fast",
+      category: "other",
+      reward: "¥10",
+      timeLeft: "马上上课",
+      title: "代打印论文 30 页",
+      summary: "教四楼机房彩印，文件已在线发，帮忙顺手取一下。",
+      anchorPosition: { x: 296, y: 452 },
+      room: "3 层机房区",
+      label: "打印急单",
+      action: "立即接单"
+    },
+    {
+      id: "task-j3-travel",
+      buildingId: "j3",
+      floorId: "f1",
+      filter: "all",
+      category: "carry",
+      reward: "¥50",
+      timeLeft: "剩 6 小时",
+      title: "帮搬宿舍大件行李",
+      summary: "从学十公寓搬到学四公寓，两箱书加两个行李箱，找路过教三附近的同学。",
+      anchorPosition: { x: 332, y: 570 },
+      room: "1 层外侧连廊集合",
+      label: "搬运大单",
+      action: "加入行程"
+    },
+    {
+      id: "task-kuaidi-shunfeng",
+      buildingId: "kuaidi",
+      floorId: "f1",
+      filter: "fast",
+      category: "delivery",
+      reward: "¥8",
+      timeLeft: "顺路即走",
+      title: "取顺丰快递送学一公寓",
+      summary: "小纸箱一件，快递站门口取，送学一路上顺带就能完成。",
+      anchorPosition: { x: 610, y: 104 },
+      room: "站外取件口",
+      label: "顺路代取",
+      action: "一键接单"
+    },
+    {
+      id: "task-canteen-huangmenji",
+      buildingId: "canteen",
+      floorId: "f2",
+      filter: "all",
+      category: "food",
+      reward: "¥15",
+      timeLeft: "剩 1 小时",
+      title: "食堂二层打包黄焖鸡",
+      summary: "微辣，加一瓶可乐，送经管楼 3 层自习室。",
+      anchorPosition: { x: 940, y: 322 },
+      room: "2 层快餐区",
+      label: "餐食热单",
+      action: "帮我带饭"
+    },
+    {
+      id: "task-library-seat",
+      buildingId: "library",
+      floorId: "f3",
+      filter: "high",
+      category: "other",
+      reward: "¥20",
+      timeLeft: "明早 8:00 前",
+      title: "图书馆三层靠窗占座",
+      summary: "明早考试周，想要三层靠窗位，帮忙提前放书占座。",
+      anchorPosition: { x: 686, y: 340 },
+      room: "3 层靠窗自习区",
+      label: "明日预约",
+      action: "查看详情"
+    },
+    {
+      id: "task-j1-laptop",
+      buildingId: "j1",
+      floorId: "f2",
+      filter: "all",
+      category: "delivery",
+      reward: "¥12",
+      timeLeft: "剩 40 分钟",
+      title: "教一楼送电脑电源",
+      summary: "2 层机房上课忘带电源，送到电梯口即可。",
+      anchorPosition: { x: 618, y: 500 },
+      room: "2 层机房外侧",
+      label: "教学楼快送",
+      action: "马上送达"
+    },
+    {
+      id: "task-main-doc",
+      buildingId: "main",
+      floorId: "f5",
+      filter: "high",
+      category: "other",
+      reward: "¥28",
+      timeLeft: "今天内",
+      title: "主楼五层代交材料",
+      summary: "材料已整理好，送主楼五层办公室门口即可。",
+      anchorPosition: { x: 706, y: 594 },
+      room: "5 层办公区",
+      label: "高额跑腿",
+      action: "进入详情"
+    },
+    {
+      id: "task-research-part",
+      buildingId: "research",
+      floorId: "f4",
+      filter: "all",
+      category: "carry",
+      reward: "¥18",
+      timeLeft: "剩 2 小时",
+      title: "科研楼 4 层送实验耗材",
+      summary: "小件实验材料，需要送到 4 层实验准备间。",
+      anchorPosition: { x: 910, y: 214 },
+      room: "4 层实验准备间",
+      label: "科研递送",
+      action: "接取耗材"
+    },
+    {
+      id: "task-j2-night-class",
+      buildingId: "j2",
+      floorId: "f1",
+      filter: "fast",
+      category: "food",
+      reward: "¥14",
+      timeLeft: "晚课前 20 分钟",
+      title: "教二楼夜课前带杯咖啡",
+      summary: "中门附近咖啡店打包一杯热拿铁，送教二一层。",
+      anchorPosition: { x: 610, y: 690 },
+      room: "1 层大厅",
+      label: "夜课补给",
+      action: "顺手带咖啡"
+    }
+  ];
+
+  const clusters = [
+    { id: "cluster-teaching", x: 612, y: 578, count: 5 },
+    { id: "cluster-dorm", x: 330, y: 232, count: 4 }
+  ];
+
+  const floors = {
+    j1: [
+      {
+        floorId: "f1",
+        name: "1F",
+        summary: "门厅、公共讨论区、普通教室与楼梯电梯厅。",
+        badges: ["普通教室", "讨论区", "电梯厅"],
+        zones: [
+          { id: "z1", name: "门厅", type: "lobby", shape: { x: 20, y: 20, w: 72, h: 42 }, labelPosition: { x: 56, y: 42 } },
+          { id: "z2", name: "教室 A101-A104", type: "classroom", shape: { x: 108, y: 20, w: 182, h: 54 }, labelPosition: { x: 199, y: 48 } },
+          { id: "z3", name: "讨论区", type: "commons", shape: { x: 20, y: 82, w: 110, h: 56 }, labelPosition: { x: 76, y: 110 } },
+          { id: "z4", name: "楼梯/电梯", type: "core", shape: { x: 146, y: 82, w: 60, h: 56 }, labelPosition: { x: 176, y: 110 } },
+          { id: "z5", name: "教室 A105-A108", type: "classroom", shape: { x: 218, y: 82, w: 72, h: 56 }, labelPosition: { x: 254, y: 110 } }
+        ],
+        pois: [
+          { name: "公共讨论区", desc: "适合碰头取物、临时沟通和短暂停留。", color: "#4970c8" },
+          { name: "楼梯与电梯厅", desc: "详情卡可提示上下楼路线，但本版不做路径导航。", color: "#d6a74f" }
+        ]
+      },
+      {
+        floorId: "f2",
+        name: "2F",
+        summary: "机房和大班教室最集中，适合做“送物到门口”类任务。",
+        badges: ["机房", "大教室", "电梯厅"],
+        zones: [
+          { id: "z1", name: "机房", type: "lab", shape: { x: 20, y: 20, w: 132, h: 56 }, labelPosition: { x: 86, y: 48 } },
+          { id: "z2", name: "电梯厅", type: "core", shape: { x: 168, y: 20, w: 52, h: 56 }, labelPosition: { x: 194, y: 48 } },
+          { id: "z3", name: "大教室", type: "classroom", shape: { x: 232, y: 20, w: 58, h: 118 }, labelPosition: { x: 261, y: 78 } },
+          { id: "z4", name: "开放走廊", type: "corridor", shape: { x: 20, y: 88, w: 200, h: 50 }, labelPosition: { x: 120, y: 112 } }
+        ],
+        pois: [
+          { name: "机房外侧", desc: "最适合“送电源、送纸张、代签到”这类快速任务。", color: "#d87379" },
+          { name: "电梯厅", desc: "适合作为固定详情弹层里的会合点描述。", color: "#6c8c78" }
+        ]
+      }
+    ],
+    j2: [
+      {
+        floorId: "f1",
+        name: "1F",
+        summary: "靠中门、课间通行密集，适合夜课补给与临时碰头。",
+        badges: ["门厅", "普通教室", "夜课高频"],
+        zones: [
+          { id: "z1", name: "门厅", type: "lobby", shape: { x: 20, y: 22, w: 76, h: 44 }, labelPosition: { x: 58, y: 44 } },
+          { id: "z2", name: "教室", type: "classroom", shape: { x: 110, y: 22, w: 180, h: 44 }, labelPosition: { x: 200, y: 44 } },
+          { id: "z3", name: "连廊", type: "corridor", shape: { x: 20, y: 78, w: 270, h: 52 }, labelPosition: { x: 155, y: 104 } }
+        ],
+        pois: [
+          { name: "一层大厅", desc: "适合约定“到大厅门口拿”这类高流转场景。", color: "#4970c8" }
+        ]
+      },
+      {
+        floorId: "f3",
+        name: "3F",
+        summary: "常规教学层，适合顺路带物和找同学类任务。",
+        badges: ["走廊", "普通教室", "楼梯口"],
+        zones: [
+          { id: "z1", name: "教室 B301-B305", type: "classroom", shape: { x: 20, y: 20, w: 172, h: 50 }, labelPosition: { x: 106, y: 45 } },
+          { id: "z2", name: "楼梯/电梯", type: "core", shape: { x: 208, y: 20, w: 82, h: 50 }, labelPosition: { x: 249, y: 45 } },
+          { id: "z3", name: "走廊", type: "corridor", shape: { x: 20, y: 84, w: 270, h: 48 }, labelPosition: { x: 155, y: 108 } }
+        ],
+        pois: [
+          { name: "楼梯口", desc: "快取快送的默认交接点。", color: "#d6a74f" }
+        ]
+      }
+    ],
+    j3: [
+      {
+        floorId: "f1",
+        name: "1F",
+        summary: "靠近西侧活动区，适合搬运、集合与临时物品交接。",
+        badges: ["门厅", "集合点", "教室"],
+        zones: [
+          { id: "z1", name: "门厅", type: "lobby", shape: { x: 20, y: 22, w: 82, h: 46 }, labelPosition: { x: 61, y: 45 } },
+          { id: "z2", name: "集合区", type: "commons", shape: { x: 116, y: 22, w: 82, h: 46 }, labelPosition: { x: 157, y: 45 } },
+          { id: "z3", name: "教室", type: "classroom", shape: { x: 208, y: 22, w: 82, h: 110 }, labelPosition: { x: 249, y: 78 } },
+          { id: "z4", name: "连廊", type: "corridor", shape: { x: 20, y: 82, w: 178, h: 50 }, labelPosition: { x: 109, y: 108 } }
+        ],
+        pois: [
+          { name: "集合区", desc: "搬运任务默认在这里碰头最合理。", color: "#d6a74f" }
+        ]
+      },
+      {
+        floorId: "f2",
+        name: "2F",
+        summary: "标准教学层，适合普通送物和找同学。",
+        badges: ["普通教室", "楼梯口"],
+        zones: [
+          { id: "z1", name: "教室 C201-C206", type: "classroom", shape: { x: 18, y: 24, w: 196, h: 48 }, labelPosition: { x: 116, y: 48 } },
+          { id: "z2", name: "楼梯/电梯", type: "core", shape: { x: 226, y: 24, w: 64, h: 48 }, labelPosition: { x: 258, y: 48 } },
+          { id: "z3", name: "走廊", type: "corridor", shape: { x: 18, y: 86, w: 272, h: 44 }, labelPosition: { x: 154, y: 108 } }
+        ],
+        pois: [
+          { name: "二层走廊", desc: "适合短暂停留与任务交接。", color: "#4970c8" }
+        ]
+      }
+    ],
+    j4: [
+      {
+        floorId: "f1",
+        name: "1F",
+        summary: "一层是门厅和普通教室，机房类需求通常往上层走。",
+        badges: ["门厅", "普通教室", "楼梯口"],
+        zones: [
+          { id: "z1", name: "门厅", type: "lobby", shape: { x: 20, y: 24, w: 86, h: 44 }, labelPosition: { x: 63, y: 46 } },
+          { id: "z2", name: "教室", type: "classroom", shape: { x: 120, y: 24, w: 170, h: 44 }, labelPosition: { x: 205, y: 46 } },
+          { id: "z3", name: "走廊", type: "corridor", shape: { x: 20, y: 82, w: 188, h: 50 }, labelPosition: { x: 114, y: 107 } },
+          { id: "z4", name: "楼梯/电梯", type: "core", shape: { x: 220, y: 82, w: 70, h: 50 }, labelPosition: { x: 255, y: 107 } }
+        ],
+        pois: [
+          { name: "门厅", desc: "默认进入点，可用于一层碰头。", color: "#4970c8" }
+        ]
+      },
+      {
+        floorId: "f3",
+        name: "3F",
+        summary: "打印、机房和赶作业场景集中，是最适合做地图任务详情的楼层。",
+        badges: ["机房", "打印区", "开放走廊"],
+        zones: [
+          { id: "z1", name: "机房区", type: "lab", shape: { x: 20, y: 20, w: 132, h: 54 }, labelPosition: { x: 86, y: 47 } },
+          { id: "z2", name: "打印点", type: "service", shape: { x: 166, y: 20, w: 60, h: 54 }, labelPosition: { x: 196, y: 47 } },
+          { id: "z3", name: "开放走廊", type: "corridor", shape: { x: 20, y: 88, w: 206, h: 46 }, labelPosition: { x: 123, y: 111 } },
+          { id: "z4", name: "楼梯/电梯", type: "core", shape: { x: 238, y: 20, w: 52, h: 114 }, labelPosition: { x: 264, y: 77 } }
+        ],
+        pois: [
+          { name: "打印点", desc: "详情面板中的“房间/区域”就以此类功能区表达，不追求房间级精度。", color: "#d87379" },
+          { name: "机房区", desc: "高频任务适合设计成“到机房外侧交接”。", color: "#d6a74f" }
+        ]
+      }
+    ],
+    main: [
+      {
+        floorId: "f1",
+        name: "1F",
+        summary: "主楼一层更像交通与服务节点，适合做交接。",
+        badges: ["门厅", "服务点", "楼梯口"],
+        zones: [
+          { id: "z1", name: "门厅", type: "lobby", shape: { x: 20, y: 20, w: 84, h: 44 }, labelPosition: { x: 62, y: 42 } },
+          { id: "z2", name: "服务点", type: "service", shape: { x: 118, y: 20, w: 82, h: 44 }, labelPosition: { x: 159, y: 42 } },
+          { id: "z3", name: "楼梯/电梯", type: "core", shape: { x: 214, y: 20, w: 76, h: 114 }, labelPosition: { x: 252, y: 76 } },
+          { id: "z4", name: "公共走廊", type: "corridor", shape: { x: 20, y: 78, w: 180, h: 56 }, labelPosition: { x: 110, y: 106 } }
+        ],
+        pois: [
+          { name: "一层服务点", desc: "适合作为“材料已到楼内，来取”类任务的交接场景。", color: "#4970c8" }
+        ]
+      },
+      {
+        floorId: "f5",
+        name: "5F",
+        summary: "办公区为主，典型任务是代交材料、送文件、找办公室。",
+        badges: ["办公区", "会议室", "电梯厅"],
+        zones: [
+          { id: "z1", name: "办公室带", type: "office", shape: { x: 20, y: 20, w: 194, h: 54 }, labelPosition: { x: 117, y: 47 } },
+          { id: "z2", name: "会议室", type: "service", shape: { x: 20, y: 88, w: 100, h: 46 }, labelPosition: { x: 70, y: 111 } },
+          { id: "z3", name: "电梯厅", type: "core", shape: { x: 134, y: 88, w: 78, h: 46 }, labelPosition: { x: 173, y: 111 } },
+          { id: "z4", name: "办公区延伸", type: "office", shape: { x: 226, y: 20, w: 64, h: 114 }, labelPosition: { x: 258, y: 78 } }
+        ],
+        pois: [
+          { name: "五层办公区", desc: "本版重点表现“楼层 + 区域”，不做具体办公室号。", color: "#d87379" }
+        ]
+      }
+    ],
+    library: [
+      {
+        floorId: "f1",
+        name: "1F",
+        summary: "借阅与服务台为主，常见代还书与取预约书。",
+        badges: ["服务台", "借阅区", "楼梯口"],
+        zones: [
+          { id: "z1", name: "服务台", type: "service", shape: { x: 20, y: 20, w: 86, h: 48 }, labelPosition: { x: 63, y: 44 } },
+          { id: "z2", name: "借阅区", type: "library", shape: { x: 120, y: 20, w: 170, h: 48 }, labelPosition: { x: 205, y: 44 } },
+          { id: "z3", name: "自助区", type: "service", shape: { x: 20, y: 82, w: 100, h: 50 }, labelPosition: { x: 70, y: 107 } },
+          { id: "z4", name: "楼梯/电梯", type: "core", shape: { x: 134, y: 82, w: 156, h: 50 }, labelPosition: { x: 212, y: 107 } }
+        ],
+        pois: [
+          { name: "服务台", desc: "适合表现“代还书”“代取预约书”类位置。", color: "#4970c8" }
+        ]
+      },
+      {
+        floorId: "f3",
+        name: "3F",
+        summary: "热门自习层，靠窗区域和讨论区都属于占座高发区。",
+        badges: ["靠窗自习", "讨论区", "楼梯口"],
+        zones: [
+          { id: "z1", name: "靠窗自习区", type: "library", shape: { x: 20, y: 20, w: 128, h: 52 }, labelPosition: { x: 84, y: 46 } },
+          { id: "z2", name: "讨论区", type: "commons", shape: { x: 162, y: 20, w: 128, h: 52 }, labelPosition: { x: 226, y: 46 } },
+          { id: "z3", name: "楼梯/电梯", type: "core", shape: { x: 20, y: 86, w: 64, h: 46 }, labelPosition: { x: 52, y: 108 } },
+          { id: "z4", name: "中部座位带", type: "library", shape: { x: 98, y: 86, w: 192, h: 46 }, labelPosition: { x: 194, y: 108 } }
+        ],
+        pois: [
+          { name: "靠窗自习区", desc: "任务详情可直接表达为“图书馆三层靠窗区”。", color: "#d6a74f" },
+          { name: "讨论区", desc: "适合约见与短时交接。", color: "#6c8c78" }
+        ]
+      }
+    ],
+    research: [
+      {
+        floorId: "f2",
+        name: "2F",
+        summary: "办公与实验混合层，适合“送到楼层再联系”类任务。",
+        badges: ["办公区", "实验室", "楼梯口"],
+        zones: [
+          { id: "z1", name: "办公区", type: "office", shape: { x: 20, y: 20, w: 132, h: 52 }, labelPosition: { x: 86, y: 46 } },
+          { id: "z2", name: "实验室", type: "lab", shape: { x: 166, y: 20, w: 124, h: 52 }, labelPosition: { x: 228, y: 46 } },
+          { id: "z3", name: "楼梯/电梯", type: "core", shape: { x: 20, y: 86, w: 74, h: 46 }, labelPosition: { x: 57, y: 108 } },
+          { id: "z4", name: "走廊", type: "corridor", shape: { x: 108, y: 86, w: 182, h: 46 }, labelPosition: { x: 199, y: 108 } }
+        ],
+        pois: [
+          { name: "实验室", desc: "表现“耗材/零件/样品送达”的典型目的地。", color: "#d87379" }
+        ]
+      },
+      {
+        floorId: "f4",
+        name: "4F",
+        summary: "实验准备与办公延伸层，适合做高精度楼层任务表达。",
+        badges: ["实验准备", "办公室", "电梯厅"],
+        zones: [
+          { id: "z1", name: "实验准备间", type: "lab", shape: { x: 20, y: 20, w: 152, h: 56 }, labelPosition: { x: 96, y: 48 } },
+          { id: "z2", name: "办公室", type: "office", shape: { x: 184, y: 20, w: 106, h: 56 }, labelPosition: { x: 237, y: 48 } },
+          { id: "z3", name: "电梯厅", type: "core", shape: { x: 20, y: 90, w: 74, h: 42 }, labelPosition: { x: 57, y: 110 } },
+          { id: "z4", name: "走廊", type: "corridor", shape: { x: 108, y: 90, w: 182, h: 42 }, labelPosition: { x: 199, y: 110 } }
+        ],
+        pois: [
+          { name: "实验准备间", desc: "任务卡中的“房间/区域”用它来表达楼内细节。", color: "#4970c8" }
+        ]
+      }
+    ],
+    canteen: [
+      {
+        floorId: "f1",
+        name: "1F",
+        summary: "基础档口与入口层，取餐口集中在东侧。",
+        badges: ["入口", "快餐口", "外带区"],
+        zones: [
+          { id: "z1", name: "入口门厅", type: "lobby", shape: { x: 20, y: 20, w: 76, h: 50 }, labelPosition: { x: 58, y: 45 } },
+          { id: "z2", name: "快餐档口", type: "food", shape: { x: 108, y: 20, w: 96, h: 50 }, labelPosition: { x: 156, y: 45 } },
+          { id: "z3", name: "外带区", type: "food", shape: { x: 216, y: 20, w: 74, h: 50 }, labelPosition: { x: 253, y: 45 } },
+          { id: "z4", name: "取餐动线", type: "corridor", shape: { x: 20, y: 84, w: 270, h: 46 }, labelPosition: { x: 155, y: 107 } }
+        ],
+        pois: [
+          { name: "外带区", desc: "餐食任务最适合把交接点定在这里。", color: "#d87379" }
+        ]
+      },
+      {
+        floorId: "f2",
+        name: "2F",
+        summary: "热门现做区，黄焖鸡、面食和饮品任务主要在这层。",
+        badges: ["现做区", "饮品", "取餐台"],
+        zones: [
+          { id: "z1", name: "现做餐区", type: "food", shape: { x: 20, y: 20, w: 138, h: 52 }, labelPosition: { x: 89, y: 46 } },
+          { id: "z2", name: "饮品区", type: "food", shape: { x: 170, y: 20, w: 120, h: 52 }, labelPosition: { x: 230, y: 46 } },
+          { id: "z3", name: "取餐台", type: "service", shape: { x: 20, y: 86, w: 120, h: 46 }, labelPosition: { x: 80, y: 109 } },
+          { id: "z4", name: "楼梯/电梯", type: "core", shape: { x: 154, y: 86, w: 136, h: 46 }, labelPosition: { x: 222, y: 109 } }
+        ],
+        pois: [
+          { name: "现做餐区", desc: "“打包黄焖鸡”这类任务就锚定在这里。", color: "#d6a74f" },
+          { name: "取餐台", desc: "详情面板中可直接告诉接单人到取餐台会合。", color: "#4970c8" }
+        ]
+      }
+    ]
+  };
+
+  const typeStyles = {
+    teaching: { fill: "#f0a3ac", stroke: "#a65867" },
+    teaching2: { fill: "#eeab77", stroke: "#9b6137" },
+    library: { fill: "#eeab77", stroke: "#9b6137" },
+    research: { fill: "#eeab77", stroke: "#9b6137" },
+    canteen: { fill: "#c7869d", stroke: "#86546f" },
+    admin: { fill: "#f08f95", stroke: "#9f4c55" },
+    dorm: { fill: "#6fc6df", stroke: "#3e7896" },
+    sports: { fill: "#f0c94a", stroke: "#9e7b19" },
+    green: { fill: "#a6d868", stroke: "#6a9641" },
+    service: { fill: "#eeab77", stroke: "#9b6137" },
+    residential: { fill: "#cfcfcb", stroke: "#8b8b86" }
+  };
+
+  const zoneStyles = {
+    lobby: { fill: "#f8efe0", stroke: "#b89a69" },
+    classroom: { fill: "#f6b8bd", stroke: "#ae646d" },
+    commons: { fill: "#bed9f2", stroke: "#6584a6" },
+    core: { fill: "#d7d8da", stroke: "#8f98a5" },
+    corridor: { fill: "#e5edf0", stroke: "#9fb0bc" },
+    library: { fill: "#f1d29b", stroke: "#b48834" },
+    office: { fill: "#cad9c9", stroke: "#71866f" },
+    lab: { fill: "#f2c9be", stroke: "#b97563" },
+    food: { fill: "#f4c6a7", stroke: "#bf7650" },
+    service: { fill: "#c8d4ef", stroke: "#6f87b7" }
+  };
+
+  const toolbarEl = document.getElementById("toolbar");
+  const mapRoot = document.getElementById("mapRoot");
+  const buildingLayer = document.getElementById("buildingLayer");
+  const taskLayer = document.getElementById("taskLayer");
+  const detailLayer = document.getElementById("detailLayer");
+  const liveCount = document.getElementById("liveCount");
+
+  const floorPanel = document.getElementById("floorPanel");
+  const panelTitle = document.getElementById("panelTitle");
+  const panelSummary = document.getElementById("panelSummary");
+  const panelBody = document.getElementById("panelBody");
+  const floorTabs = document.getElementById("floorTabs");
+  const panelClose = document.getElementById("panelClose");
+
+  let activeFilter = "all";
+  let activeTaskId = null;
+  let activeBuildingId = null;
+  let activeFloorId = null;
+
+  function svgEl(tag, attrs = {}, text = "") {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  function ratioX(x) {
+    return (x / MAP.width) * 100;
+  }
+
+  function ratioY(y) {
+    return (y / MAP.height) * 100;
+  }
+
+  function buildingById(id) {
+    return buildings.find((item) => item.id === id);
+  }
+
+  function pinMatchesFilter(pin) {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "fast") return pin.filter === "fast";
+    if (activeFilter === "high") return pin.filter === "high";
+    return true;
+  }
+
+  function getPinColor(category) {
+    return {
+      delivery: "var(--delivery)",
+      food: "var(--food)",
+      carry: "var(--carry)",
+      other: "var(--other)"
+    }[category] || "var(--ink-700)";
+  }
+
+  function getZoneStyle(type) {
+    return zoneStyles[type] || zoneStyles.corridor;
+  }
+
+  function renderToolbar() {
+    toolbarEl.innerHTML = "";
+    filters.forEach((filter) => {
+      const btn = document.createElement("button");
+      btn.className = "toolbar-chip" + (filter.id === activeFilter ? " active" : "");
+      btn.textContent = filter.label;
+      btn.addEventListener("click", () => {
+        activeFilter = filter.id;
+        if (activeTaskId && !pinMatchesFilter(taskPins.find((pin) => pin.id === activeTaskId))) {
+          activeTaskId = null;
+        }
+        renderToolbar();
+        renderTaskLayer();
+        renderDetailCard();
+      });
+      toolbarEl.appendChild(btn);
+    });
+  }
+
+  function drawMap() {
+    mapRoot.innerHTML = "";
+
+    mapRoot.appendChild(svgEl("rect", {
+      x: 86,
+      y: 54,
+      width: 1028,
+      height: 760,
+      rx: 16,
+      fill: "#d8e6e8",
+      stroke: "#9db0b7",
+      "stroke-width": 2
+    }));
+
+    roads.horizontal.forEach((road) => {
+      mapRoot.appendChild(svgEl("rect", {
+        x: road.x,
+        y: road.y,
+        width: road.w,
+        height: road.h,
+        rx: 6,
+        fill: road.muted ? "#c3cacc" : "var(--road)"
+      }));
+      if (road.label) {
+        const text = svgEl("text", {
+          x: road.labelX,
+          y: road.labelY,
+          fill: road.muted ? "#8c989b" : "#11141b",
+          "font-size": road.size || 18,
+          "font-weight": road.muted ? 700 : 900,
+          "text-anchor": "middle",
+          "font-family": "Noto Sans SC, sans-serif"
+        }, road.label);
+        mapRoot.appendChild(text);
+      }
+    });
+
+    roads.vertical.forEach((road) => {
+      mapRoot.appendChild(svgEl("rect", {
+        x: road.x,
+        y: road.y,
+        width: road.w,
+        height: road.h,
+        rx: 6,
+        fill: "var(--road)"
+      }));
+      if (road.label) {
+        const text = svgEl("text", {
+          x: road.labelX,
+          y: road.labelY,
+          fill: "#11141b",
+          "font-size": road.size || 18,
+          "font-weight": 900,
+          "text-anchor": "middle",
+          "font-family": "Noto Sans SC, sans-serif",
+          transform: `rotate(${road.rotate}, ${road.labelX}, ${road.labelY})`
+        }, road.label);
+        mapRoot.appendChild(text);
+      }
+    });
+
+    roads.gates.forEach((gate) => {
+      mapRoot.appendChild(svgEl("rect", {
+        x: gate.x,
+        y: gate.y,
+        width: gate.w,
+        height: gate.h,
+        rx: 8,
+        fill: "#11141b"
+      }));
+      const tx = gate.vertical ? gate.x + 30 : gate.x + gate.w / 2;
+      const ty = gate.vertical ? gate.y + gate.h / 2 : gate.y - 10;
+      mapRoot.appendChild(svgEl("text", {
+        x: tx,
+        y: ty,
+        fill: "#11141b",
+        "font-size": 12,
+        "font-weight": 900,
+        "text-anchor": "middle",
+        "font-family": "Noto Sans SC, sans-serif",
+        transform: gate.vertical ? `rotate(-90, ${tx}, ${ty})` : undefined
+      }, gate.label));
+    });
+
+    mapRoot.appendChild(svgEl("text", {
+      x: 1128,
+      y: 80,
+      fill: "#11141b",
+      "font-size": 18,
+      "font-weight": 900,
+      "text-anchor": "middle",
+      "font-family": "Noto Sans SC, sans-serif"
+    }, "北"));
+    mapRoot.appendChild(svgEl("path", {
+      d: "M1128 92 L1116 126 L1128 118 L1140 126 Z",
+      fill: "#11141b"
+    }));
+
+    buildings.forEach((building) => {
+      const style = typeStyles[building.type] || typeStyles.service;
+      mapRoot.appendChild(svgEl("rect", {
+        x: building.x,
+        y: building.y,
+        width: building.w,
+        height: building.h,
+        rx: building.core ? 12 : 8,
+        fill: style.fill,
+        stroke: style.stroke,
+        "stroke-width": building.core ? 2.4 : 1.6,
+        filter: building.core ? "url(#softShadow)" : undefined
+      }));
+
+      const label = svgEl("text", {
+        x: building.labelPosition.x,
+        y: building.labelPosition.y,
+        fill: building.core ? "#11141b" : "#233245",
+        "font-size": building.core ? 18 : 12,
+        "font-weight": building.core ? 900 : 800,
+        "text-anchor": "middle",
+        "font-family": "Noto Sans SC, sans-serif"
+      }, building.name);
+      mapRoot.appendChild(label);
+    });
+
+    [
+      { x: 202, y: 448, w: 208, h: 158, fill: "#a8d66d" },
+      { x: 820, y: 430, w: 150, h: 118, fill: "#a8d66d" },
+      { x: 1044, y: 430, w: 78, h: 118, fill: "#f1c04f" },
+      { x: 162, y: 214, w: 58, h: 170, fill: "#6fc6df" }
+    ].forEach((zone) => {
+      mapRoot.appendChild(svgEl("rect", {
+        x: zone.x,
+        y: zone.y,
+        width: zone.w,
+        height: zone.h,
+        rx: 8,
+        fill: zone.fill,
+        stroke: "rgba(31,42,58,0.14)",
+        "stroke-width": 1.5
+      }));
+    });
+  }
+
+  function renderBuildingLayer() {
+    buildingLayer.innerHTML = "";
+    buildings.filter((building) => building.core).forEach((building) => {
+      const chip = document.createElement("button");
+      chip.className = "building-chip" + (activeBuildingId === building.id ? " active" : "");
+      chip.style.left = `${ratioX(building.chipPosition.x)}%`;
+      chip.style.top = `${ratioY(building.chipPosition.y)}%`;
+      chip.innerHTML = `<strong>${building.abbr}</strong><span>点击查看楼层</span>`;
+      chip.addEventListener("click", () => openBuilding(building.id));
+      buildingLayer.appendChild(chip);
+    });
+  }
+
+  function renderTaskLayer() {
+    taskLayer.innerHTML = "";
+    const visiblePins = taskPins.filter(pinMatchesFilter);
+    liveCount.textContent = `${visiblePins.length} 个地图点`;
+
+    visiblePins.forEach((pin) => {
+      const beacon = document.createElement("div");
+      beacon.className = "beacon" + (activeTaskId === pin.id ? " active" : "");
+      beacon.style.left = `${ratioX(pin.anchorPosition.x)}%`;
+      beacon.style.top = `${ratioY(pin.anchorPosition.y)}%`;
+
+      const color = getPinColor(pin.category);
+      beacon.innerHTML = `
+        <button class="beacon-btn" aria-label="${pin.title}">
+          <span class="beacon-pulse" style="background:${color};"></span>
+          <span class="beacon-ring"></span>
+          <span class="beacon-core" style="background:${color};"></span>
+        </button>
+        <div class="beacon-summary">
+          <span class="category-dot" style="background:${color};"></span>
+          ${pin.reward}
+          <em>${pin.label}</em>
+        </div>
+      `;
+
+      beacon.querySelector(".beacon-btn").addEventListener("click", (event) => {
+        event.stopPropagation();
+        activeTaskId = activeTaskId === pin.id ? null : pin.id;
+        renderTaskLayer();
+        renderDetailCard();
+      });
+
+      taskLayer.appendChild(beacon);
+    });
+
+    clusters.forEach((cluster) => {
+      const visible = taskPins.some((pin) => pinMatchesFilter(pin) && buildingById(pin.buildingId)?.id === cluster.id.replace("cluster-", ""));
+      if (visible) return;
+      const chip = document.createElement("div");
+      chip.className = "cluster";
+      chip.style.left = `${ratioX(cluster.x)}%`;
+      chip.style.top = `${ratioY(cluster.y)}%`;
+      chip.textContent = cluster.count;
+      taskLayer.appendChild(chip);
+    });
+  }
+
+  function renderDetailCard() {
+    detailLayer.innerHTML = "";
+    if (!activeTaskId) return;
+    const pin = taskPins.find((item) => item.id === activeTaskId);
+    if (!pin) return;
+
+    const card = document.createElement("div");
+    card.className = "detail-card";
+    const building = buildingById(pin.buildingId);
+    const xPercent = ratioX(pin.anchorPosition.x);
+    const yPercent = ratioY(pin.anchorPosition.y);
+    const alignRight = xPercent > 70;
+    const alignTop = yPercent > 60;
+    card.style.left = alignRight ? `calc(${xPercent}% - 312px)` : `calc(${xPercent}% + 18px)`;
+    card.style.top = alignTop ? `calc(${yPercent}% - 218px)` : `calc(${yPercent}% - 8px)`;
+    card.innerHTML = `
+      <div class="detail-kicker">
+        <span class="type-${pin.category}">${pin.label}</span>
+        <div class="detail-reward type-${pin.category}">${pin.reward}</div>
+      </div>
+      <div class="detail-title">${pin.title}</div>
+      <div class="detail-meta">
+        <span class="meta-pill">${building ? building.name : "楼宇"} · ${pin.floorId.toUpperCase()}</span>
+        <span class="meta-pill">${pin.room}</span>
+        <span class="meta-pill urgent">${pin.timeLeft}</span>
+      </div>
+      <div class="detail-desc">${pin.summary}</div>
+      <div class="detail-actions">
+        <button class="detail-btn primary">${pin.action}</button>
+        ${building && building.core ? '<button class="detail-btn secondary" data-open-floor>查看楼层</button>' : ""}
+      </div>
+    `;
+
+    const floorBtn = card.querySelector("[data-open-floor]");
+    if (floorBtn) {
+      floorBtn.addEventListener("click", () => {
+        openBuilding(pin.buildingId, pin.floorId);
+      });
+    }
+
+    detailLayer.appendChild(card);
+  }
+
+  function renderFloorPanel() {
+    if (!activeBuildingId || !floors[activeBuildingId]) {
+      floorPanel.classList.remove("open");
+      floorPanel.setAttribute("aria-hidden", "true");
+      floorTabs.innerHTML = "";
+      panelBody.innerHTML = "";
+      return;
+    }
+
+    floorPanel.classList.add("open");
+    floorPanel.setAttribute("aria-hidden", "false");
+
+    const building = buildingById(activeBuildingId);
+    const floorList = floors[activeBuildingId];
+    const activeFloor = floorList.find((floor) => floor.floorId === activeFloorId) || floorList[0];
+    activeFloorId = activeFloor.floorId;
+
+    panelTitle.textContent = building.name;
+    panelSummary.textContent = building.summary;
+
+    floorTabs.innerHTML = "";
+    floorList.forEach((floor) => {
+      const tab = document.createElement("button");
+      tab.className = "floor-tab" + (floor.floorId === activeFloorId ? " active" : "");
+      tab.textContent = `${floor.name} · ${floor.summary.slice(0, 10)}`;
+      tab.addEventListener("click", () => {
+        activeFloorId = floor.floorId;
+        renderFloorPanel();
+      });
+      floorTabs.appendChild(tab);
+    });
+
+    panelBody.innerHTML = `
+      <div class="floor-meta">
+        <div class="floor-badges">
+          ${activeFloor.badges.map((badge) => `<span class="floor-badge">${badge}</span>`).join("")}
+        </div>
+        <p class="floor-desc">${activeFloor.summary}</p>
+      </div>
+      <div class="floor-map-card">
+        ${renderFloorSvg(activeFloor.zones)}
+      </div>
+      <div class="poi-list">
+        ${activeFloor.pois.map((poi) => `
+          <div class="poi-item">
+            <span class="poi-marker" style="background:${poi.color};"></span>
+            <div>
+              <strong>${poi.name}</strong>
+              <span>${poi.desc}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function renderFloorSvg(zones) {
+    const zoneMarkup = zones.map((zone) => {
+      const style = getZoneStyle(zone.type);
+      const { x, y, w, h } = zone.shape;
+      return `
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="${style.fill}" stroke="${style.stroke}" stroke-width="2"></rect>
+        <text x="${zone.labelPosition.x}" y="${zone.labelPosition.y}" text-anchor="middle" fill="#1b2433" font-size="11" font-weight="800" font-family="Noto Sans SC, sans-serif">${zone.name}</text>
+      `;
+    }).join("");
+
+    return `
+      <svg viewBox="0 0 310 154" preserveAspectRatio="xMidYMid meet" aria-label="楼层示意图">
+        <rect x="8" y="8" width="294" height="138" rx="22" fill="rgba(255,255,255,0.74)" stroke="rgba(31,42,58,0.1)" stroke-width="2"></rect>
+        ${zoneMarkup}
+      </svg>
+    `;
+  }
+
+  function openBuilding(buildingId, floorId) {
+    activeBuildingId = buildingId;
+    activeFloorId = floorId || floors[buildingId]?.[0]?.floorId || null;
+    renderBuildingLayer();
+    renderFloorPanel();
+  }
+
+  function closeBuilding() {
+    activeBuildingId = null;
+    activeFloorId = null;
+    renderBuildingLayer();
+    renderFloorPanel();
+  }
+
+  panelClose.addEventListener("click", closeBuilding);
+
+  document.addEventListener("click", (event) => {
+    const clickedInsideTask = event.target.closest(".beacon") || event.target.closest(".detail-card");
+    const clickedInsidePanel = event.target.closest(".floor-panel") || event.target.closest(".building-chip");
+    if (!clickedInsideTask) {
+      activeTaskId = null;
+      renderTaskLayer();
+      renderDetailCard();
+    }
+    if (!clickedInsidePanel && !event.target.closest("[data-open-floor]")) {
+      closeBuilding();
+    }
+  });
+
+  renderToolbar();
+  drawMap();
+  renderBuildingLayer();
+  renderTaskLayer();
+  renderDetailCard();
+  renderFloorPanel();
+</script>
+</body>
+</html>
