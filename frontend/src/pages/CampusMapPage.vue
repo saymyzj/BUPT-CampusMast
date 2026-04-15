@@ -1,18 +1,42 @@
-<!--
-  文件说明：
-  这是校园地图页占位文件。
-  A 同学后续应在这里把北邮校园平面图、楼宇点位、任务点和附近任务列表组合起来。
--->
 <template>
-  <section class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-    <div class="rounded-3xl bg-white p-6 shadow-sm">
-      <h2 class="text-xl font-bold text-campus-900">校园地图</h2>
-      <p class="mt-3 text-slate-500">这里将放置北邮平面图、楼宇点位和任务分布。</p>
-    </div>
-    <aside class="rounded-3xl bg-white p-6 shadow-sm">
-      <h2 class="text-xl font-bold text-campus-900">附近任务</h2>
-      <p class="mt-3 text-slate-500">这里将展示按楼宇距离排序的任务列表。</p>
-    </aside>
-  </section>
+  <div class="map-page font-body">
+    <MapContainer>
+      <BuildingLayer />
+      <TaskBeaconLayer />
+      <BuildingInfoCard />
+    </MapContainer>
+    <MapHUD />
+    <MapLegend />
+    <PostTaskFAB />
+  </div>
 </template>
 
+<script setup lang="ts">
+import { onMounted, onUnmounted } from "vue";
+import MapContainer from "@/components/map/MapContainer.vue";
+import BuildingLayer from "@/components/map/BuildingLayer.vue";
+import TaskBeaconLayer from "@/components/map/TaskBeaconLayer.vue";
+import MapHUD from "@/components/map/MapHUD.vue";
+import BuildingInfoCard from "@/components/map/BuildingInfoCard.vue";
+import MapLegend from "@/components/map/MapLegend.vue";
+import PostTaskFAB from "@/components/map/PostTaskFAB.vue";
+import { useMapStore } from "@/stores/map";
+
+const mapStore = useMapStore();
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") mapStore.clearAll();
+}
+
+onMounted(() => document.addEventListener("keydown", onKeydown));
+onUnmounted(() => document.removeEventListener("keydown", onKeydown));
+</script>
+
+<style scoped>
+.map-page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f5efe2 0%, #ede5d6 100%);
+}
+</style>
