@@ -11,8 +11,6 @@
 # 该文件体现了当前冻结文档中的“单云主机/容器主部署”基线。
 # -----------------------------------------------------------------------------
 
-version: "3.9"
-
 services:
   nginx:
     image: nginx:1.27-alpine
@@ -39,6 +37,10 @@ services:
       dockerfile: backend/Dockerfile
     container_name: campusmast-backend
     restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.seed_data &&
+             uvicorn app.main:app --host 0.0.0.0 --port 9000"
     env_file:
       - backend/.env.production
     depends_on:
