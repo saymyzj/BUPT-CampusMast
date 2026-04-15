@@ -18,7 +18,11 @@ const routes: RouteRecordRaw[] = [
   { path: "/profile", component: () => import("@/pages/ProfilePage.vue") },
   { path: "/notifications", component: () => import("@/pages/NotificationsPage.vue") },
   { path: "/chat", component: () => import("@/pages/ChatPage.vue") },
-  { path: "/map", component: () => import("@/pages/CampusMapPage.vue") },
+  {
+    path: "/map",
+    component: () => import("@/pages/CampusMapPage.vue"),
+    meta: { layout: "map" },
+  },
   { path: "/admin", component: () => import("@/pages/AdminDashboardPage.vue") },
 ];
 

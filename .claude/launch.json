@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "/Users/zhoujia/code/webProject/CampusMast/frontend"],
+      "port": 5173
+    },
+    {
+      "name": "dark-geek-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8090", "-d", "/Users/zhoujia/code/webProject/CampusMast/docs/designs"],
+      "port": 8090
+    }
+  ]
+}

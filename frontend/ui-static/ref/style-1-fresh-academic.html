@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusMast 校园万事达 — 任务大厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue-500: #2556a8;
+    --blue-600: #1f478c;
+    --blue-700: #183766;
+    --blue-50: #edf3fb;
+    --blue-100: #d5e3f6;
+    --green-500: #6d8b74;
+    --green-50: #edf3ee;
+    --green-100: #d4e3d5;
+    --orange-500: #c67f2f;
+    --orange-50: #faf1e4;
+    --gray-50: #f6f1e6;
+    --gray-100: #ece3d2;
+    --gray-200: #d8ccb4;
+    --gray-300: #b9ad95;
+    --gray-400: #8f8472;
+    --gray-500: #6a6255;
+    --gray-600: #50493f;
+    --gray-700: #2f3340;
+    --gray-800: #202735;
+    --gray-900: #171d28;
+    --red-500: #b24a3a;
+    --white: #FFFFFF;
+    --bg-gradient-start: #fbf7ef;
+    --bg-gradient-end: #efe6d6;
+    --shadow-sm: 0 2px 4px rgba(23,29,40,0.05);
+    --shadow-md: 0 8px 16px rgba(23,29,40,0.07);
+    --shadow-lg: 0 14px 28px rgba(23,29,40,0.1);
+    --shadow-xl: 0 18px 36px rgba(23,29,40,0.12);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --radius-xs: 6px;
+    --transition: 0.3s ease;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', 'PingFang SC', -apple-system, sans-serif;
+    background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    background-attachment: fixed;
+    color: var(--gray-800);
+    min-width: 1200px;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(37,86,168,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37,86,168,0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Nunito', 'Noto Sans SC', sans-serif;
+  }
+
+  /* ====== NAV ====== */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(251,247,239,0.94);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 48px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .nav-logo-icon {
+    width: 34px; height: 34px;
+    color: var(--red-500);
+  }
+
+  .nav-logo-text {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    color: var(--gray-900);
+    letter-spacing: -0.3px;
+  }
+
+  .nav-logo-text span {
+    color: var(--blue-500);
+  }
+
+  .nav-center {
+    flex: 1;
+    max-width: 480px;
+    margin: 0 32px;
+  }
+
+  .search-box {
+    position: relative;
+    width: 100%;
+  }
+
+  .search-box input {
+    width: 100%;
+    height: 40px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 20px;
+    padding: 0 16px 0 42px;
+    font-size: 14px;
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    outline: none;
+    transition: border var(--transition), box-shadow var(--transition);
+  }
+
+  .search-box input::placeholder { color: var(--gray-400); }
+
+  .search-box input:focus {
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    background: var(--white);
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px; height: 18px;
+    color: var(--gray-400);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+
+  .nav-bell {
+    position: relative;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 10px;
+    transition: background var(--transition);
+  }
+
+  .nav-bell:hover { background: var(--gray-100); }
+
+  .nav-bell svg { width: 22px; height: 22px; color: var(--gray-600); }
+
+  .nav-bell .badge {
+    position: absolute;
+    top: 2px; right: 2px;
+    width: 18px; height: 18px;
+    background: var(--red-500);
+    color: var(--white);
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: notifPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes notifPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+
+  .nav-wallet {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: var(--orange-50);
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-800);
+    cursor: pointer;
+    transition: background var(--transition);
+  }
+
+  .nav-wallet:hover { background: var(--blue-100); }
+
+  .nav-wallet svg { width: 18px; height: 18px; }
+
+  .nav-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 10px 4px 4px;
+    border-radius: 20px;
+    transition: background var(--transition);
+  }
+
+  .nav-user:hover { background: var(--gray-100); }
+
+  .nav-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--blue-600);
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-username {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-700);
+  }
+
+  .nav-user svg { width: 16px; height: 16px; color: var(--gray-400); }
+
+  /* ====== STATS BANNER ====== */
+  .stats-banner {
+    background:
+      linear-gradient(0deg, rgba(37,86,168,0.04), rgba(37,86,168,0.04)),
+      repeating-linear-gradient(90deg, transparent 0 18px, rgba(178,74,58,0.06) 18px 19px);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 16px 48px;
+  }
+
+  .stats-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeInUp 0.6s ease-out both;
+  }
+
+  .stat-item:nth-child(1) { animation-delay: 0.05s; }
+  .stat-item:nth-child(2) { animation-delay: 0.15s; }
+  .stat-item:nth-child(3) { animation-delay: 0.25s; }
+  .stat-item:nth-child(4) { animation-delay: 0.35s; }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .stat-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stat-icon svg { width: 20px; height: 20px; }
+
+  .stat-icon.blue { background: var(--blue-100); color: var(--blue-600); }
+  .stat-icon.green { background: var(--green-100); color: var(--green-500); }
+  .stat-icon.orange { background: var(--orange-50); color: var(--orange-500); }
+  .stat-icon.purple { background: #EDE9FE; color: #7C3AED; }
+
+  .stat-text {
+    font-size: 14px;
+    color: var(--gray-600);
+  }
+
+  .stat-text strong {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gray-800);
+    font-family: 'Nunito', sans-serif;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--gray-300);
+    opacity: 0.6;
+  }
+
+  /* ====== CATEGORY FILTER ====== */
+  .filter-bar {
+    background: var(--white);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 48px;
+    position: sticky;
+    top: 64px;
+    z-index: 90;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .filter-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .filter-tabs {
+    display: flex;
+    gap: 0;
+  }
+
+  .filter-tab {
+    padding: 14px 22px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-500);
+    cursor: pointer;
+    border-bottom: 2.5px solid transparent;
+    transition: color var(--transition), border-color var(--transition);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .filter-tab:hover {
+    color: var(--blue-500);
+  }
+
+  .filter-tab.active {
+    color: var(--blue-600);
+    font-weight: 600;
+    border-bottom-color: var(--blue-500);
+  }
+
+  .filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .filter-select {
+    height: 36px;
+    padding: 0 32px 0 12px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--radius-xs);
+    font-size: 13px;
+    font-family: 'Noto Sans SC', sans-serif;
+    color: var(--gray-700);
+    background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 5 3 3 3-3'/%3E%3C/svg%3E") no-repeat right 10px center;
+    appearance: none;
+    cursor: pointer;
+    outline: none;
+    transition: border var(--transition);
+  }
+
+  .filter-select:focus { border-color: var(--blue-500); }
+
+  /* ====== MAIN CONTENT ====== */
+  .main-content {
+    max-width: 1400px;
+    margin: 28px auto;
+    padding: 0 48px;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ====== TASK CARDS ====== */
+  .task-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .task-card {
+    background: rgba(255,253,248,0.96);
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition);
+    position: relative;
+  }
+
+  .task-card:hover {
+    transform: translateY(-4px) rotate(-0.6deg);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--blue-500);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    border: 1px solid currentColor;
+  }
+
+  .tag-package { background: var(--blue-50); color: var(--blue-600); }
+  .tag-food { background: var(--orange-50); color: #D97706; }
+  .tag-move { background: var(--green-50); color: #059669; }
+  .tag-other { background: var(--gray-100); color: var(--gray-600); }
+
+  .card-reward {
+    font-family: 'Nunito', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--red-500);
+    letter-spacing: -0.5px;
+  }
+
+  .card-reward small {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-800);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .card-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--gray-500);
+  }
+
+  .card-meta-row svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .card-meta-row.urgent { color: var(--red-500); font-weight: 500; }
+
+  .card-bottom {
+    border-top: 1px solid var(--gray-100);
+    padding-top: 12px;
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-avatar {
+    width: 28px; height: 28px;
+    border-radius: 12px;
+    background: var(--blue-600);
+    color: var(--white);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-avatar.a2 { background: #9b6b2c; }
+  .card-avatar.a3 { background: #6d8b74; }
+  .card-avatar.a4 { background: #b24a3a; }
+
+  .card-user-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-700);
+  }
+
+  .card-credit {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--green-50);
+    color: var(--green-500);
+  }
+
+  .card-views {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--gray-400);
+  }
+
+  .card-views svg { width: 14px; height: 14px; }
+
+  /* ====== SIDEBAR ====== */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .sidebar-section {
+    background: rgba(255,253,248,0.96);
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+    padding: 20px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .sidebar-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-title svg { width: 18px; height: 18px; color: var(--blue-500); }
+
+  .rec-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition);
+  }
+
+  .rec-card:hover { background: var(--gray-50); }
+
+  .rec-card + .rec-card {
+    border-top: 1px solid var(--gray-100);
+  }
+
+  .rec-icon {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .rec-icon.blue { background: var(--blue-50); }
+  .rec-icon.orange { background: var(--orange-50); }
+  .rec-icon.green { background: var(--green-50); }
+
+  .rec-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rec-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-800);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rec-sub {
+    font-size: 12px;
+    color: var(--gray-400);
+    margin-top: 2px;
+  }
+
+  .rec-price {
+    font-family: 'Nunito', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--blue-600);
+    flex-shrink: 0;
+  }
+
+  /* Map */
+  .campus-map {
+    width: 100%;
+    aspect-ratio: 4/3;
+    border-radius: var(--radius-sm);
+    background:
+      linear-gradient(rgba(37,86,168,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37,86,168,0.06) 1px, transparent 1px),
+      #f2efe6;
+    background-size: 22px 22px;
+    border: 1.5px dashed #9db6db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .map-pin {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: pinBounce 2s ease-in-out infinite;
+  }
+
+  .map-pin:nth-child(2) { animation-delay: 0.3s; }
+  .map-pin:nth-child(3) { animation-delay: 0.6s; }
+  .map-pin:nth-child(4) { animation-delay: 0.9s; }
+
+  @keyframes pinBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .map-pin svg { width: 24px; height: 24px; }
+  .map-pin-label {
+    font-size: 10px;
+    color: var(--gray-600);
+    font-weight: 500;
+    background: var(--white);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-top: 2px;
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .cta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 48px;
+    background: var(--blue-600);
+    color: var(--white);
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition);
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+
+  .cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(31,71,140,0.28);
+  }
+
+  .cta-btn svg { width: 20px; height: 20px; }
+
+  /* ====== FAB ====== */
+  .fab {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: var(--red-500);
+    color: var(--white);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(178,74,58,0.28);
+    z-index: 200;
+    transition: transform var(--transition), box-shadow var(--transition);
+  }
+
+  .fab:hover {
+    transform: scale(1.05) rotate(-4deg);
+    box-shadow: 0 10px 30px rgba(178,74,58,0.36);
+  }
+
+  .fab svg { width: 26px; height: 26px; }
+
+  .fab::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid var(--red-500);
+    opacity: 0;
+    animation: fabPulse 2s ease-out infinite;
+  }
+
+  @keyframes fabPulse {
+    0% { opacity: 0.6; transform: scale(0.9); }
+    100% { opacity: 0; transform: scale(1.4); }
+  }
+
+  .fab-tooltip {
+    position: absolute;
+    right: 68px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--gray-800);
+    color: var(--white);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition);
+  }
+
+  .fab:hover .fab-tooltip { opacity: 1; }
+
+  .fab-tooltip::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-left-color: var(--gray-800);
+    border-right: none;
+  }
+
+  /* ====== FOOTER ====== */
+  .footer {
+    background: var(--white);
+    border-top: 1px solid var(--gray-200);
+    padding: 32px 48px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    margin-top: 40px;
+  }
+
+  .footer-slogan {
+    font-size: 14px;
+    color: var(--gray-500);
+    margin-bottom: 10px;
+  }
+
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .footer-links a {
+    font-size: 13px;
+    color: var(--gray-400);
+    text-decoration: none;
+    transition: color var(--transition);
+  }
+
+  .footer-links a:hover { color: var(--blue-500); }
+
+  .footer-links a + a::before {
+    content: '|';
+    margin-right: 24px;
+    color: var(--gray-300);
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== NAVBAR ====== -->
+<nav class="navbar">
+  <div class="nav-left">
+    <svg class="nav-logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="18" fill="currentColor" opacity="0.1"/>
+      <path d="M20 6 L20 34" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M20 6 L32 14 L20 18" fill="currentColor" opacity="0.85"/>
+      <circle cx="20" cy="20" r="3" fill="currentColor"/>
+      <path d="M20 20 L28 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M20 20 L14 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <circle cx="20" cy="20" r="14" stroke="currentColor" stroke-width="1.2" fill="none" opacity="0.2"/>
+    </svg>
+    <div class="nav-logo-text">Campus<span>Mast</span> 校园万事达</div>
+  </div>
+
+  <div class="nav-center">
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" placeholder="搜索任务、地点或关键词...">
+    </div>
+  </div>
+
+  <div class="nav-right">
+    <div class="nav-bell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div class="badge">3</div>
+    </div>
+
+    <div class="nav-wallet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+      ¥ 128.50
+    </div>
+
+    <div class="nav-user">
+      <div class="nav-avatar">周</div>
+      <span class="nav-username">周同学</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+  </div>
+</nav>
+
+<!-- ====== STATS BANNER ====== -->
+<div class="stats-banner">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <div class="stat-icon blue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
+      </div>
+      <div class="stat-text">今日发布 <strong>128</strong> 个任务</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-icon green">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+      </div>
+      <div class="stat-text">已完成 <strong>1,024</strong> 笔交易</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-icon orange">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="stat-text">活跃用户 <strong>256</strong> 人</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-icon purple">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="stat-text">平均响应 <strong>5</strong> 分钟</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== FILTER BAR ====== -->
+<div class="filter-bar">
+  <div class="filter-inner">
+    <div class="filter-tabs">
+      <div class="filter-tab active">全部</div>
+      <div class="filter-tab">📦 代取快递</div>
+      <div class="filter-tab">🍜 代买餐食</div>
+      <div class="filter-tab">📦 搬运重物</div>
+      <div class="filter-tab">🔧 其他</div>
+    </div>
+    <div class="filter-controls">
+      <select class="filter-select">
+        <option>最新发布</option>
+        <option>赏金最高</option>
+        <option>距离最近</option>
+        <option>智能推荐</option>
+      </select>
+      <select class="filter-select">
+        <option>全部楼宇</option>
+        <option>学生1号公寓</option>
+        <option>学生3号公寓</option>
+        <option>学生10号公寓</option>
+        <option>教三楼</option>
+        <option>教四楼</option>
+        <option>学活</option>
+      </select>
+      <select class="filter-select">
+        <option>赏金范围</option>
+        <option>¥0 - ¥10</option>
+        <option>¥10 - ¥30</option>
+        <option>¥30 - ¥50</option>
+        <option>¥50+</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MAIN CONTENT ====== -->
+<div class="main-content">
+  <!-- LEFT: TASK GRID -->
+  <div class="task-grid">
+
+    <!-- Card 1 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-package">📦 代取快递</span>
+        <span class="card-reward"><small>¥</small>8.00</span>
+      </div>
+      <div class="card-title">帮取顺丰快递 学1公寓</div>
+      <div class="card-meta">
+        <div class="card-meta-row urgent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 2小时
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          学生1号公寓
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar">李</div>
+          <span class="card-user-name">李同学</span>
+          <span class="card-credit">95分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          24
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-food">🍜 代买餐食</span>
+        <span class="card-reward"><small>¥</small>12.00</span>
+      </div>
+      <div class="card-title">午餐代买 教三楼送达</div>
+      <div class="card-meta">
+        <div class="card-meta-row urgent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 45分钟
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          教三楼
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar a2">王</div>
+          <span class="card-user-name">王同学</span>
+          <span class="card-credit">88分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          31
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-move">📦 搬运重物</span>
+        <span class="card-reward"><small>¥</small>25.00</span>
+      </div>
+      <div class="card-title">搬运书籍到图书馆</div>
+      <div class="card-meta">
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 3小时
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          学活
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar a3">张</div>
+          <span class="card-user-name">张同学</span>
+          <span class="card-credit">92分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          15
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-package">📦 代取快递</span>
+        <span class="card-reward"><small>¥</small>6.00</span>
+      </div>
+      <div class="card-title">取中通快递 菜鸟驿站</div>
+      <div class="card-meta">
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 5小时
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          西土城校区菜鸟驿站
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar a4">赵</div>
+          <span class="card-user-name">赵同学</span>
+          <span class="card-credit">78分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          42
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 5 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-food">🍜 代买餐食</span>
+        <span class="card-reward"><small>¥</small>15.00</span>
+      </div>
+      <div class="card-title">代买咖啡 星巴克</div>
+      <div class="card-meta">
+        <div class="card-meta-row urgent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 1小时
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          西土城校区食堂
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar">刘</div>
+          <span class="card-user-name">刘同学</span>
+          <span class="card-credit">96分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          8
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 6 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-move">📦 搬运重物</span>
+        <span class="card-reward"><small>¥</small>50.00</span>
+      </div>
+      <div class="card-title">帮搬宿舍 大件行李</div>
+      <div class="card-meta">
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 6小时
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          学生10号公寓
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar a2">陈</div>
+          <span class="card-user-name">陈同学</span>
+          <span class="card-credit">85分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          56
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 7 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-other">🔧 其他</span>
+        <span class="card-reward"><small>¥</small>10.00</span>
+      </div>
+      <div class="card-title">代打印论文 30页</div>
+      <div class="card-meta">
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 4小时
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          教四楼
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar a3">孙</div>
+          <span class="card-user-name">孙同学</span>
+          <span class="card-credit">90分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          19
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 8 -->
+    <div class="task-card">
+      <div class="card-top">
+        <span class="card-tag tag-package">📦 代取快递</span>
+        <span class="card-reward"><small>¥</small>10.00</span>
+      </div>
+      <div class="card-title">取京东快递 两个包裹</div>
+      <div class="card-meta">
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          剩余 2.5小时
+        </div>
+        <div class="card-meta-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          学生3号公寓
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-user">
+          <div class="card-avatar a4">马</div>
+          <span class="card-user-name">马同学</span>
+          <span class="card-credit">82分</span>
+        </div>
+        <div class="card-views">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          27
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Recommended Tasks -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        推荐任务
+      </div>
+
+      <div class="rec-card">
+        <div class="rec-icon blue">📦</div>
+        <div class="rec-info">
+          <div class="rec-name">帮取圆通快递 西门</div>
+          <div class="rec-sub">学生5号公寓 · 剩余 3小时</div>
+        </div>
+        <div class="rec-price">¥7</div>
+      </div>
+
+      <div class="rec-card">
+        <div class="rec-icon orange">🍜</div>
+        <div class="rec-info">
+          <div class="rec-name">代买奶茶 蜜雪冰城</div>
+          <div class="rec-sub">教二楼 · 剩余 1.5小时</div>
+        </div>
+        <div class="rec-price">¥8</div>
+      </div>
+
+      <div class="rec-card">
+        <div class="rec-icon green">🔧</div>
+        <div class="rec-info">
+          <div class="rec-name">代还图书馆书籍</div>
+          <div class="rec-sub">图书馆 · 剩余 5小时</div>
+        </div>
+        <div class="rec-price">¥5</div>
+      </div>
+    </div>
+
+    <!-- Campus Map -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        校园地图
+      </div>
+      <div class="campus-map">
+        <!-- Simplified campus outline -->
+        <svg width="100%" height="100%" viewBox="0 0 300 220" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0">
+          <!-- Campus boundary -->
+          <rect x="30" y="20" width="240" height="180" rx="12" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="6 4" fill="#EFF6FF" opacity="0.5"/>
+          <!-- Roads -->
+          <line x1="150" y1="20" x2="150" y2="200" stroke="#BFDBFE" stroke-width="2"/>
+          <line x1="30" y1="110" x2="270" y2="110" stroke="#BFDBFE" stroke-width="2"/>
+          <!-- Buildings -->
+          <rect x="55" y="40" width="50" height="30" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+          <text x="80" y="59" text-anchor="middle" fill="#3B82F6" font-size="8" font-family="Noto Sans SC">教学楼</text>
+          <rect x="195" y="40" width="50" height="30" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+          <text x="220" y="59" text-anchor="middle" fill="#3B82F6" font-size="8" font-family="Noto Sans SC">图书馆</text>
+          <rect x="55" y="130" width="50" height="30" rx="4" fill="#D1FAE5" stroke="#6EE7B7" stroke-width="1"/>
+          <text x="80" y="149" text-anchor="middle" fill="#059669" font-size="8" font-family="Noto Sans SC">宿舍区</text>
+          <rect x="195" y="130" width="50" height="30" rx="4" fill="#FEF3C7" stroke="#FCD34D" stroke-width="1"/>
+          <text x="220" y="149" text-anchor="middle" fill="#D97706" font-size="8" font-family="Noto Sans SC">食堂</text>
+          <!-- Label -->
+          <text x="150" y="102" text-anchor="middle" fill="#93C5FD" font-size="9" font-family="Nunito" font-weight="700">BUPT Campus</text>
+        </svg>
+
+        <!-- Pins -->
+        <div class="map-pin" style="top:22%;left:26%">
+          <svg viewBox="0 0 24 24" fill="#3B82F6" stroke="white" stroke-width="1"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg>
+          <span class="map-pin-label">3个任务</span>
+        </div>
+        <div class="map-pin" style="top:22%;left:68%">
+          <svg viewBox="0 0 24 24" fill="#10B981" stroke="white" stroke-width="1"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg>
+          <span class="map-pin-label">1个任务</span>
+        </div>
+        <div class="map-pin" style="top:62%;left:26%">
+          <svg viewBox="0 0 24 24" fill="#F59E0B" stroke="white" stroke-width="1"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg>
+          <span class="map-pin-label">5个任务</span>
+        </div>
+        <div class="map-pin" style="top:62%;left:68%">
+          <svg viewBox="0 0 24 24" fill="#EF4444" stroke="white" stroke-width="1"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg>
+          <span class="map-pin-label">2个任务</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Publish CTA -->
+    <button class="cta-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      快速发布任务
+    </button>
+  </div>
+</div>
+
+<!-- ====== FAB ====== -->
+<button class="fab">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <span class="fab-tooltip">发布任务</span>
+</button>
+
+<!-- ====== FOOTER ====== -->
+<footer class="footer">
+  <div class="footer-slogan">CampusMast 校园万事达 — 让校园互助更简单</div>
+  <div class="footer-links">
+    <a href="#">关于我们</a>
+    <a href="#">使用帮助</a>
+    <a href="#">联系我们</a>
+    <a href="#">北京邮电大学</a>
+  </div>
+</footer>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
