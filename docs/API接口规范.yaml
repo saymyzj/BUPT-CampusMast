@@ -1,0 +1,1732 @@
+openapi: "3.0.3"
+
+info:
+  title: CampusMast API
+  version: "2.0.0"
+  description: |
+    CampusMast 第三阶段冻结版接口规范。
+
+    约定如下：
+    - 所有 JSON 字段名使用 camelCase
+    - 所有 ID 使用字符串
+    - 金额统一使用保留两位小数的字符串，如 `"10.00"`
+    - 分页从 1 开始，默认 `limit=20`
+    - 时间戳统一使用 ISO 8601
+    - 除注册、登录、刷新令牌外，所有 HTTP 接口都需要 JWT
+    - 实时通知与任务内聊天统一通过 `WebSocket`
+
+servers:
+  - url: http://localhost:9000
+    description: 本地开发环境
+  - url: https://api.campusmast.example.com
+    description: 生产环境
+
+tags:
+  - name: Auth
+    description: 认证与用户资料
+  - name: Task
+    description: 任务生命周期
+  - name: Wallet
+    description: 钱包与流水
+  - name: Credit
+    description: 信用与评价
+  - name: Notification
+    description: 通知
+  - name: Chat
+    description: 任务内 IM
+  - name: Map
+    description: 校园地图与附近任务
+  - name: Recommendation
+    description: 智能推荐
+  - name: Moderation
+    description: AI 审核
+  - name: Admin
+    description: 完整运营后台
+  - name: Config
+    description: 系统配置与首页内容配置
+  - name: Upload
+    description: 文件上传
+
+security:
+  - BearerAuth: []
+
+x-websocket:
+  baseUrl: wss://api.campusmast.example.com/ws
+  auth:
+    mode: queryToken
+    query: accessToken
+  channels:
+    - name: notification:{userId}
+      description: 用户个人通知通道
+      events:
+        - NOTIFICATION_CREATED
+        - TASK_STATUS_CHANGED
+        - UNREAD_SYNC
+        - SYSTEM_NOTICE
+    - name: chat:{taskId}
+      description: 任务内聊天通道
+      events:
+        - CHAT_MESSAGE
+        - CHAT_READ
+        - USER_TYPING
+    - name: presence:{taskId}
+      description: 聊天在线状态与已读同步通道
+      events:
+        - USER_ONLINE
+        - USER_OFFLINE
+        - CHAT_READ
+
+paths:
+  /api/auth/register:
+    post:
+      operationId: register
+      tags: [Auth]
+      summary: 注册新用户
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentEmail, password, nickname]
+              properties:
+                studentEmail:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+                nickname:
+                  type: string
+                  maxLength: 30
+      responses:
+        "201":
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthPayload"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/auth/login:
+    post:
+      operationId: login
+      tags: [Auth]
+      summary: 使用邮箱和密码登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentEmail, password]
+              properties:
+                studentEmail:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [Auth]
+      summary: 刷新访问令牌
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+
+  /api/auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [Auth]
+      summary: 获取当前用户资料
+      responses:
+        "200":
+          description: 用户资料
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+    put:
+      operationId: updateCurrentUser
+      tags: [Auth]
+      summary: 更新当前用户资料
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                phone:
+                  type: string
+                avatarUrl:
+                  type: string
+                  format: uri
+                defaultBuildingCode:
+                  type: string
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+
+  /api/tasks:
+    post:
+      operationId: createTask
+      tags: [Task]
+      summary: 创建任务（含同步审核与资金冻结）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, category, reward, deadline, buildingCode]
+              properties:
+                title:
+                  type: string
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 500
+                category:
+                  $ref: "#/components/schemas/TaskCategory"
+                reward:
+                  type: string
+                  pattern: '^\d+\.\d{2}$'
+                deadline:
+                  type: string
+                  format: date-time
+                buildingCode:
+                  type: string
+                locationDetail:
+                  type: string
+                  maxLength: 200
+                imageUrls:
+                  type: array
+                  maxItems: 3
+                  items:
+                    type: string
+                    format: uri
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+        "422":
+          $ref: "#/components/responses/ModerationBlocked"
+
+    get:
+      operationId: listTasks
+      tags: [Task]
+      summary: 获取任务大厅列表
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: category
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskCategory"
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: buildingCode
+          in: query
+          schema:
+            type: string
+        - name: nearBuildingCode
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [newest, rewardDesc, rewardAsc, deadlineAsc, distanceAsc]
+      responses:
+        "200":
+          description: 分页任务列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Task"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/tasks/{id}:
+    get:
+      operationId: getTaskById
+      tags: [Task]
+      summary: 获取任务详情
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: 任务详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/tasks/{id}/accept:
+    patch:
+      operationId: acceptTask
+      tags: [Task]
+      summary: 接单
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: 接单成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/tasks/{id}/submit:
+    patch:
+      operationId: submitTaskProof
+      tags: [Task]
+      summary: 提交完成证明
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proofNote:
+                  type: string
+                proofImageUrls:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+      responses:
+        "200":
+          description: 提交成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+
+  /api/tasks/{id}/confirm:
+    patch:
+      operationId: confirmTask
+      tags: [Task]
+      summary: 确认完成并结算
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: 结算成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+
+  /api/tasks/{id}/reject:
+    patch:
+      operationId: rejectTask
+      tags: [Task]
+      summary: 拒绝验收并发起争议
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: 已发起争议
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+
+  /api/tasks/{id}/cancel:
+    patch:
+      operationId: cancelTask
+      tags: [Task]
+      summary: 取消任务
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: 取消成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+
+  /api/tasks/{id}/abandon:
+    patch:
+      operationId: abandonTask
+      tags: [Task]
+      summary: 放弃任务
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: 放弃成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+
+  /api/tasks/my/posted:
+    get:
+      operationId: listMyPostedTasks
+      tags: [Task]
+      summary: 获取我发布的任务
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+      responses:
+        "200":
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Task"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/tasks/my/accepted:
+    get:
+      operationId: listMyAcceptedTasks
+      tags: [Task]
+      summary: 获取我接取的任务
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+      responses:
+        "200":
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Task"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/tasks/{id}/rating:
+    post:
+      operationId: rateTaskPartner
+      tags: [Credit]
+      summary: 对任务对方进行评价
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [score]
+              properties:
+                score:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+      responses:
+        "201":
+          description: 评价成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Rating"
+
+  /api/wallet/balance:
+    get:
+      operationId: getWalletBalance
+      tags: [Wallet]
+      summary: 获取钱包余额
+      responses:
+        "200":
+          description: 钱包余额
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Wallet"
+
+  /api/wallet/transactions:
+    get:
+      operationId: listWalletTransactions
+      tags: [Wallet]
+      summary: 获取钱包流水
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 分页流水
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Transaction"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/wallet/topup:
+    post:
+      operationId: topUpWallet
+      tags: [Wallet]
+      summary: 模拟充值
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: string
+                  pattern: '^\d+\.\d{2}$'
+      responses:
+        "200":
+          description: 充值成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Wallet"
+
+  /api/wallet/withdraw:
+    post:
+      operationId: withdrawWallet
+      tags: [Wallet]
+      summary: 模拟提现
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: string
+                  pattern: '^\d+\.\d{2}$'
+      responses:
+        "200":
+          description: 提现成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Wallet"
+
+  /api/notifications:
+    get:
+      operationId: listNotifications
+      tags: [Notification]
+      summary: 获取通知列表
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: 通知列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Notification"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [Notification]
+      summary: 标记单条通知已读
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/notifications/read-all:
+    patch:
+      operationId: markAllNotificationsRead
+      tags: [Notification]
+      summary: 全部通知已读
+      responses:
+        "200":
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/chat/conversations:
+    get:
+      operationId: listChatConversations
+      tags: [Chat]
+      summary: 获取我的聊天会话列表
+      responses:
+        "200":
+          description: 会话列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ChatConversation"
+
+  /api/chat/tasks/{taskId}/messages:
+    get:
+      operationId: listTaskChatMessages
+      tags: [Chat]
+      summary: 获取任务聊天消息
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 消息列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ChatMessage"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+    post:
+      operationId: createTaskChatMessage
+      tags: [Chat]
+      summary: 发送聊天消息（HTTP 兜底）
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                clientMessageId:
+                  type: string
+                content:
+                  type: string
+      responses:
+        "201":
+          description: 发送成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ChatMessage"
+
+  /api/chat/conversations/{id}/read:
+    patch:
+      operationId: markConversationRead
+      tags: [Chat]
+      summary: 标记会话已读
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lastReadMessageId:
+                  type: string
+      responses:
+        "200":
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/map/buildings:
+    get:
+      operationId: listCampusBuildings
+      tags: [Map]
+      summary: 获取北邮校园楼宇点位
+      responses:
+        "200":
+          description: 楼宇列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CampusBuilding"
+
+  /api/map/tasks/nearby:
+    get:
+      operationId: listNearbyTasks
+      tags: [Map]
+      summary: 获取附近任务
+      parameters:
+        - name: buildingCode
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 附近任务列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/NearbyTask"
+
+  /api/recommendations/tasks:
+    get:
+      operationId: listRecommendedTasks
+      tags: [Recommendation]
+      summary: 获取智能推荐任务
+      responses:
+        "200":
+          description: 推荐列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RecommendationItem"
+
+  /api/moderation/my-records:
+    get:
+      operationId: listMyModerationRecords
+      tags: [Moderation]
+      summary: 获取我的审核记录
+      responses:
+        "200":
+          description: 审核记录
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ModerationRecord"
+
+  /api/admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [Admin]
+      summary: 后台获取用户列表
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: keyword
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 用户列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/User"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/admin/users/{id}:
+    patch:
+      operationId: adminUpdateUser
+      tags: [Admin]
+      summary: 后台更新用户状态与信用分
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isActive:
+                  type: boolean
+                requesterCreditScore:
+                  type: number
+                helperCreditScore:
+                  type: number
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/admin/tasks:
+    get:
+      operationId: adminListTasks
+      tags: [Admin]
+      summary: 后台获取任务列表
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+        - name: needsAdminReview
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Task"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/admin/tasks/{id}/resolve:
+    patch:
+      operationId: adminResolveDispute
+      tags: [Admin]
+      summary: 后台处理争议
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resolution, note]
+              properties:
+                resolution:
+                  type: string
+                  enum: [refund, settle, split, close]
+                splitRatio:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  description: 当 resolution=split 时使用
+                note:
+                  type: string
+      responses:
+        "200":
+          description: 处理成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/admin/moderation/records:
+    get:
+      operationId: adminListModerationRecords
+      tags: [Admin]
+      summary: 后台获取审核记录
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: riskLevel
+          in: query
+          schema:
+            $ref: "#/components/schemas/ModerationResult"
+        - name: adminReviewStatus
+          in: query
+          schema:
+            $ref: "#/components/schemas/AdminReviewStatus"
+      responses:
+        "200":
+          description: 审核记录列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ModerationRecord"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+
+  /api/admin/moderation/records/{id}/review:
+    patch:
+      operationId: adminReviewModerationRecord
+      tags: [Admin]
+      summary: 后台复审低危审核记录
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [approve, reject]
+                note:
+                  type: string
+      responses:
+        "200":
+          description: 复审成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/admin/configs:
+    get:
+      operationId: adminListConfigs
+      tags: [Config]
+      summary: 获取系统配置列表
+      responses:
+        "200":
+          description: 配置列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ConfigItem"
+
+  /api/admin/configs/{key}:
+    put:
+      operationId: adminUpdateConfig
+      tags: [Config]
+      summary: 更新系统配置
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [configValue]
+              properties:
+                configValue:
+                  type: object
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/admin/homepage/blocks:
+    get:
+      operationId: adminListHomepageBlocks
+      tags: [Config]
+      summary: 获取首页配置模块
+      responses:
+        "200":
+          description: 首页模块列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/HomepageBlock"
+
+  /api/admin/homepage/blocks/{id}:
+    put:
+      operationId: adminUpdateHomepageBlock
+      tags: [Config]
+      summary: 更新首页配置模块
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HomepageBlock"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/upload/sign:
+    post:
+      operationId: getUploadSignedUrl
+      tags: [Upload]
+      summary: 获取 OSS 预签名上传地址
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, contentType]
+              properties:
+                filename:
+                  type: string
+                contentType:
+                  type: string
+      responses:
+        "200":
+          description: 地址生成成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          uploadUrl:
+                            type: string
+                            format: uri
+                          fileKey:
+                            type: string
+                          fileUrl:
+                            type: string
+                            format: uri
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: 页码
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: 每页条数
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    TaskId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 任务 ID
+
+  responses:
+    Unauthorized:
+      description: 未授权
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: 业务冲突
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ModerationBlocked:
+      description: 内容审核拦截
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    Role:
+      type: string
+      enum: [USER, ADMIN]
+
+    TaskStatus:
+      type: string
+      enum: [PENDING, IN_PROGRESS, PENDING_REVIEW, COMPLETED, DISPUTED, CANCELLED, EXPIRED, CLOSED_BY_ADMIN]
+
+    TaskCategory:
+      type: string
+      enum: [package, food, move, other]
+
+    TransactionType:
+      type: string
+      enum: [TOP_UP, WITHDRAW, FREEZE, UNFREEZE, SETTLE_OUT, SETTLE_IN, SETTLE_SPLIT]
+
+    ModerationResult:
+      type: string
+      enum: [ALLOW, REVIEW, BLOCK]
+
+    AdminReviewStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+
+    HomepageBlockType:
+      type: string
+      enum: [ANNOUNCEMENT, BANNER, RECOMMEND_SLOT]
+
+    NotificationType:
+      type: string
+      enum:
+        - TASK_ACCEPTED
+        - TASK_SUBMITTED
+        - TASK_CONFIRMED
+        - TASK_REJECTED
+        - TASK_CANCELLED
+        - TASK_DISPUTED
+        - DISPUTE_RESOLVED
+        - CHAT_MESSAGE
+        - CHAT_READ
+        - SYSTEM_NOTICE
+        - MODERATION_REVIEW
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          nullable: true
+        meta:
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: MODERATION_BLOCKED
+            message:
+              type: string
+              example: 内容命中高危规则，已被系统拦截
+            details:
+              type: object
+              nullable: true
+
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    AuthPayload:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        studentEmail:
+          type: string
+          format: email
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          $ref: "#/components/schemas/Role"
+        requesterCreditScore:
+          type: number
+          example: 88.5
+        helperCreditScore:
+          type: number
+          example: 92.0
+        overallCreditScore:
+          type: number
+          example: 90.6
+        defaultBuildingCode:
+          type: string
+          nullable: true
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        nickname:
+          type: string
+        overallCreditScore:
+          type: number
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: "#/components/schemas/TaskCategory"
+        reward:
+          type: string
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        buildingCode:
+          type: string
+        locationDetail:
+          type: string
+          nullable: true
+        deadline:
+          type: string
+          format: date-time
+        imageUrls:
+          type: array
+          items:
+            type: string
+        requester:
+          $ref: "#/components/schemas/UserSummary"
+        helper:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/UserSummary"
+        moderationResult:
+          $ref: "#/components/schemas/ModerationResult"
+        needsAdminReview:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    TaskLog:
+      type: object
+      properties:
+        id:
+          type: string
+        fromStatus:
+          $ref: "#/components/schemas/TaskStatus"
+        toStatus:
+          $ref: "#/components/schemas/TaskStatus"
+        actorId:
+          type: string
+        remark:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    TaskDetail:
+      allOf:
+        - $ref: "#/components/schemas/Task"
+        - type: object
+          properties:
+            proofNote:
+              type: string
+              nullable: true
+            proofImageUrls:
+              type: array
+              items:
+                type: string
+            logs:
+              type: array
+              items:
+                $ref: "#/components/schemas/TaskLog"
+
+    Wallet:
+      type: object
+      properties:
+        available:
+          type: string
+          example: "100.00"
+        frozen:
+          type: string
+          example: "20.00"
+        total:
+          type: string
+          example: "120.00"
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        amount:
+          type: string
+        balanceAfter:
+          type: string
+        relatedTaskId:
+          type: string
+          nullable: true
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Rating:
+      type: object
+      properties:
+        id:
+          type: string
+        taskId:
+          type: string
+        fromUserId:
+          type: string
+        toUserId:
+          type: string
+        score:
+          type: integer
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          $ref: "#/components/schemas/NotificationType"
+        title:
+          type: string
+        body:
+          type: string
+        relatedTaskId:
+          type: string
+          nullable: true
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    ChatConversation:
+      type: object
+      properties:
+        id:
+          type: string
+        taskId:
+          type: string
+        unreadCount:
+          type: integer
+        latestMessage:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ChatMessage"
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        conversationId:
+          type: string
+        senderId:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CampusBuilding:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        campusZone:
+          type: string
+        xCoord:
+          type: number
+        yCoord:
+          type: number
+
+    NearbyTask:
+      allOf:
+        - $ref: "#/components/schemas/Task"
+        - type: object
+          properties:
+            distanceScore:
+              type: number
+
+    RecommendationItem:
+      type: object
+      properties:
+        task:
+          $ref: "#/components/schemas/Task"
+        scoreTotal:
+          type: number
+        scoreCategory:
+          type: number
+        scoreDistance:
+          type: number
+        scoreSuccessRate:
+          type: number
+        scoreActiveTime:
+          type: number
+
+    ModerationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        taskId:
+          type: string
+          nullable: true
+        userId:
+          type: string
+        provider:
+          type: string
+          example: DEEPSEEK
+        riskLevel:
+          $ref: "#/components/schemas/ModerationResult"
+        hitTags:
+          type: array
+          items:
+            type: string
+        adminReviewStatus:
+          $ref: "#/components/schemas/AdminReviewStatus"
+        adminReviewNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ConfigItem:
+      type: object
+      properties:
+        configKey:
+          type: string
+        configGroup:
+          type: string
+        configValue:
+          type: object
+        description:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    HomepageBlock:
+      type: object
+      properties:
+        id:
+          type: string
+        blockType:
+          $ref: "#/components/schemas/HomepageBlockType"
+        title:
+          type: string
+        content:
+          type: object
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean

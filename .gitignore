@@ -1,0 +1,43 @@
+# -----------------------------------------------------------------------------
+# 文件说明：
+# 这是 CampusMast 项目的统一忽略规则，目的是避免把依赖目录、构建产物、
+# 环境变量、缓存文件和本地开发痕迹提交进仓库。
+# A、B、组长三位成员都应共享这份规则，减少无意义冲突。
+# -----------------------------------------------------------------------------
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# Python / backend
+backend/.venv/
+backend/venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/htmlcov/
+backend/.coverage
+__pycache__/
+*.py[cod]
+
+# Environment files
+.env
+.env.local
+.env.production
+frontend/.env
+backend/.env
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs / temp
+*.log
+logs/
+tmp/
+temp/

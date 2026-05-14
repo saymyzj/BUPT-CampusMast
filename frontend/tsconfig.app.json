@@ -1,0 +1,13 @@
+{
+  "//": "文件说明：这是浏览器端代码的 TypeScript 配置，主要覆盖 Vue 页面、组件、路由、状态管理和 API 调用。",
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}
+

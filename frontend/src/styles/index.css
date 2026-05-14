@@ -1,0 +1,23 @@
+/*
+ * 文件说明：
+ * 这是前端全局样式入口，统一引入 Tailwind 的 base/components/utilities。
+ * A 同学若要补充页面级全局变量、基础字号或背景样式，可优先放在这里。
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(21, 112, 239, 0.08), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #ffffff 45%, #f7fafc 100%);
+  color: #0f172a;
+}
+
