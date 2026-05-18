@@ -139,7 +139,10 @@ def _distance_score(db: Session, task: Task, profile: UserProfile | None, weight
     target = _building(db, task.building_code)
     if origin is None or target is None:
         return _score(weight / Decimal("2"))
-    distance = math.dist((float(origin.x_coord), float(origin.y_coord)), (float(target.x_coord), float(target.y_coord)))
+    distance = math.dist(
+        (float(origin.latitude), float(origin.longitude)),
+        (float(target.latitude), float(target.longitude)),
+    )
     distance_factor = max(0.0, 1.0 - min(distance, 1000.0) / 1000.0)
     return _score(weight * Decimal(str(distance_factor)))
 

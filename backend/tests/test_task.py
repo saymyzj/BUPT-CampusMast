@@ -18,8 +18,9 @@ from app.dependencies.database import get_db
 from app.models import *  # noqa: F403
 from app.models.base import Base
 from app.models.config import SystemConfig
-from app.models.enums import TaskCategory, TaskStatus
+from app.models.enums import ModerationResult, TaskCategory, TaskStatus
 from app.models.map import CampusBuilding
+from app.models.moderation import ModerationRecord
 from app.models.task import Task, TaskLog
 from app.models.user import User
 from app.models.wallet import Wallet
@@ -103,15 +104,15 @@ def add_admin(db_session, user_id: str = "admin") -> None:
 
 
 def add_building(db_session, code: str, x: float, y: float) -> None:
-    db_session.add(CampusBuilding(code=code, name=code, x_coord=x, y_coord=y, is_active=True))
+    db_session.add(CampusBuilding(code=code, name=code, latitude=x, longitude=y, is_active=True))
     db_session.commit()
 
 
 def set_helper_credit_threshold(db_session, value: str) -> None:
     db_session.merge(
         SystemConfig(
-            config_key="task.acceptance.helperCreditThreshold",
-            config_group="task",
+            config_key="helperCreditThreshold",
+            config_group="credit",
             config_value=value,
             description="Helper credit threshold for tests",
         )
@@ -154,7 +155,7 @@ def task_payload_json(reward: str = "20.00") -> dict:
 def task_api_client(db_session):
     app = FastAPI()
     app.include_router(task_router)
-    current_user = {"id": "requester", "role": "USER", "nickname": "requester"}
+    current_user = SimpleNamespace(id="requester", role="USER", nickname="requester")
 
     def override_db():
         yield db_session
@@ -225,7 +226,7 @@ def test_accept_requires_helper_credit_threshold(db_session) -> None:
 def test_accept_uses_helper_credit_threshold_from_system_configs(db_session) -> None:
     add_user(db_session, "requester", available="100.00")
     add_user(db_session, "helper", helper_score="75.00")
-    set_helper_credit_threshold(db_session, "80.00")
+    set_helper_credit_threshold(db_session, '{"value": 80}')
     task = create_task(db_session, "requester", task_payload("20.00"))
 
     with pytest.raises(TaskError) as exc:
@@ -245,6 +246,60 @@ def test_accept_threshold_falls_back_to_default_for_invalid_config(db_session) -
     accepted = accept_task(db_session, task.id, "helper")
 
     assert accepted.status == TaskStatus.IN_PROGRESS
+
+
+def test_create_task_blocks_high_risk_content_without_freezing_wallet(db_session, monkeypatch) -> None:
+    add_user(db_session, "requester", available="100.00")
+    monkeypatch.setattr(
+        "app.services.moderation_service.moderate_task_content",
+        lambda **_kwargs: (ModerationResult.BLOCK, ["blocked"], "blocked content"),
+    )
+
+    with pytest.raises(TaskError) as exc:
+        create_task(db_session, "requester", task_payload("20.00"))
+
+    wallet = db_session.query(Wallet).filter_by(user_id="requester").one()
+    records = db_session.query(ModerationRecord).all()
+    assert exc.value.code == "MODERATION_BLOCKED"
+    assert db_session.query(Task).count() == 0
+    assert wallet_to_dict(wallet) == {"available": "100.00", "frozen": "0.00", "total": "100.00"}
+    assert len(records) == 1
+    assert records[0].task_id is None
+    assert records[0].risk_level == "BLOCK"
+
+
+def test_create_task_review_content_marks_needs_admin_review(db_session, monkeypatch) -> None:
+    add_user(db_session, "requester", available="100.00")
+    monkeypatch.setattr(
+        "app.services.moderation_service.moderate_task_content",
+        lambda **_kwargs: (ModerationResult.REVIEW, ["review"], "review content"),
+    )
+
+    task = create_task(db_session, "requester", task_payload("20.00"))
+
+    record = db_session.query(ModerationRecord).one()
+    assert task.moderation_result == ModerationResult.REVIEW
+    assert task.needs_admin_review is True
+    assert record.task_id == task.id
+    assert record.risk_level == "REVIEW"
+
+
+def test_create_task_allow_content_freezes_reward_and_writes_moderation_record(db_session, monkeypatch) -> None:
+    add_user(db_session, "requester", available="100.00")
+    monkeypatch.setattr(
+        "app.services.moderation_service.moderate_task_content",
+        lambda **_kwargs: (ModerationResult.ALLOW, [], "allow content"),
+    )
+
+    task = create_task(db_session, "requester", task_payload("20.00"))
+
+    wallet = db_session.query(Wallet).filter_by(user_id="requester").one()
+    record = db_session.query(ModerationRecord).one()
+    assert task.moderation_result == ModerationResult.ALLOW
+    assert task.needs_admin_review is False
+    assert wallet_to_dict(wallet) == {"available": "80.00", "frozen": "20.00", "total": "100.00"}
+    assert record.task_id == task.id
+    assert record.risk_level == "ALLOW"
 
 
 def test_concurrent_accept_allows_only_one_helper(tmp_path) -> None:
@@ -323,7 +378,7 @@ def test_task_detail_api_contains_frozen_fields(task_api_client, db_session) -> 
     assert data["proofImageUrls"] == []
     assert isinstance(data["logs"], list)
     assert data["logs"][0]["fromStatus"] == "PENDING"
-    assert current_user["id"] == "requester"
+    assert current_user.id == "requester"
 
 
 def test_create_task_api_returns_201_success_response(task_api_client, db_session) -> None:
@@ -372,13 +427,13 @@ def test_my_task_api_lists_posted_and_accepted_tasks(task_api_client, db_session
     accepted = create_task(db_session, "requester", task_payload("30.00"))
     accept_task(db_session, accepted.id, "helper")
 
-    current_user["id"] = "requester"
+    current_user.id = "requester"
     posted_response = client.get("/tasks/my/posted", params={"status": "PENDING"})
     assert posted_response.status_code == 200
     assert [row["id"] for row in posted_response.json()["data"]] == [posted.id]
     assert posted_response.json()["meta"]["total"] == 1
 
-    current_user["id"] = "helper"
+    current_user.id = "helper"
     accepted_response = client.get("/tasks/my/accepted", params={"status": "IN_PROGRESS"})
     assert accepted_response.status_code == 200
     assert [row["id"] for row in accepted_response.json()["data"]] == [accepted.id]
@@ -392,10 +447,10 @@ def test_accept_task_api_rejects_duplicate_accept(task_api_client, db_session) -
     add_user(db_session, "helper_b")
     task = create_task(db_session, "requester", task_payload("20.00"))
 
-    current_user["id"] = "helper_a"
+    current_user.id = "helper_a"
     assert client.patch(f"/tasks/{task.id}/accept").status_code == 200
 
-    current_user["id"] = "helper_b"
+    current_user.id = "helper_b"
     response = client.patch(f"/tasks/{task.id}/accept")
     assert response.status_code == 409
     assert response.json()["success"] is False
@@ -407,7 +462,7 @@ def test_accept_task_api_rejects_requester_accepting_own_task(task_api_client, d
     add_user(db_session, "requester", available="100.00")
     task = create_task(db_session, "requester", task_payload("20.00"))
 
-    current_user["id"] = "requester"
+    current_user.id = "requester"
     response = client.patch(f"/tasks/{task.id}/accept")
 
     assert response.status_code == 409
@@ -420,7 +475,7 @@ def test_accept_task_api_rejects_low_credit_helper(task_api_client, db_session) 
     add_user(db_session, "helper", helper_score="59.99")
     task = create_task(db_session, "requester", task_payload("20.00"))
 
-    current_user["id"] = "helper"
+    current_user.id = "helper"
     response = client.patch(f"/tasks/{task.id}/accept")
 
     assert response.status_code == 409
@@ -435,7 +490,7 @@ def test_accept_task_api_expires_overdue_task_and_unfreezes_reward(task_api_clie
     task.deadline = datetime.utcnow() - timedelta(minutes=1)
     db_session.commit()
 
-    current_user["id"] = "helper"
+    current_user.id = "helper"
     response = client.patch(f"/tasks/{task.id}/accept")
 
     wallet = db_session.query(Wallet).filter_by(user_id="requester").one()
@@ -463,6 +518,21 @@ def test_confirm_task_rejects_duplicate_confirmation_without_duplicate_settlemen
     assert wallet_to_dict(helper_wallet) == {"available": "30.00", "frozen": "0.00", "total": "30.00"}
 
 
+def test_confirm_task_recalculates_requester_and_helper_credit(db_session) -> None:
+    add_user(db_session, "requester", available="100.00")
+    add_user(db_session, "helper")
+    task = create_task(db_session, "requester", task_payload("20.00"))
+    accept_task(db_session, task.id, "helper")
+    submit_task_proof(db_session, task.id, "helper", proof_payload())
+
+    confirm_task(db_session, task.id, "requester")
+
+    requester_snapshot = db_session.query(CreditSnapshot).filter_by(user_id="requester", role_scope="requester").one()
+    helper_snapshot = db_session.query(CreditSnapshot).filter_by(user_id="helper", role_scope="helper").one()
+    assert float(requester_snapshot.calculated_score) == 100.0
+    assert float(helper_snapshot.calculated_score) == 100.0
+
+
 def test_cancel_task_rejects_non_pending_task(db_session) -> None:
     add_user(db_session, "requester", available="100.00")
     add_user(db_session, "helper")
@@ -486,6 +556,22 @@ def test_abandon_task_requires_assigned_helper(db_session) -> None:
         abandon_task(db_session, task.id, "other_helper")
 
     assert exc.value.code == "ONLY_ASSIGNED_HELPER_CAN_ABANDON"
+
+
+def test_abandon_task_recalculates_original_helper_credit(db_session) -> None:
+    add_user(db_session, "requester", available="100.00")
+    add_user(db_session, "helper")
+    task = create_task(db_session, "requester", task_payload("20.00"))
+    accept_task(db_session, task.id, "helper")
+
+    abandoned = abandon_task(db_session, task.id, "helper")
+
+    helper_snapshot = db_session.query(CreditSnapshot).filter_by(user_id="helper", role_scope="helper").one()
+    helper = db_session.get(User, "helper")
+    assert abandoned.helper_id is None
+    assert float(helper_snapshot.abandon_rate) == 100.0
+    assert float(helper_snapshot.calculated_score) == 50.0
+    assert float(helper.helper_credit_score) == 50.0
 
 
 def test_transition_rule_table_matches_frozen_document() -> None:

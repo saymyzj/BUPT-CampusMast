@@ -19,6 +19,7 @@ from app.models.base import Base
 from app.models.config import SystemConfig
 from app.models.enums import TaskStatus
 from app.models.rating import CreditSnapshot, Rating
+from app.models.task import TaskLog
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.routers.credit import router as credit_router
@@ -160,7 +161,7 @@ def requester_lost_dispute_task(db_session, requester_id: str, helper_id: str):
 def rating_api_client(db_session):
     app = FastAPI()
     app.include_router(task_router)
-    current_user = {"id": "requester", "role": "USER", "nickname": "requester"}
+    current_user = SimpleNamespace(id="requester", role="USER", nickname="requester")
 
     def override_db():
         yield db_session
@@ -201,7 +202,7 @@ def test_rating_api_writes_rating_response(rating_api_client, db_session) -> Non
     client, current_user = rating_api_client
     task = completed_task(db_session)
 
-    current_user["id"] = "requester"
+    current_user.id = "requester"
     response = client.post(f"/tasks/{task.id}/rating", json={"score": 5, "comment": "Great"})
 
     body = response.json()
@@ -282,7 +283,7 @@ def test_rating_rejects_uncompleted_task(db_session) -> None:
 def test_rating_score_must_be_between_one_and_five(rating_api_client, db_session) -> None:
     client, current_user = rating_api_client
     task = completed_task(db_session)
-    current_user["id"] = "requester"
+    current_user.id = "requester"
 
     response = client.post(f"/tasks/{task.id}/rating", json={"score": 6, "comment": "Too high"})
 
@@ -426,6 +427,83 @@ def test_requester_credit_recalculation_tracks_malicious_dispute_loss(db_session
     assert float(requester_snapshot.average_rating) == 80.0
     assert float(requester_snapshot.malicious_dispute_rate) == 100.0
     assert float(requester_snapshot.calculated_score) == 80.0
+
+
+def test_helper_credit_recalculation_tracks_completion_timeout(db_session) -> None:
+    add_user(db_session, "requester", "100.00")
+    add_user(db_session, "helper", "0.00")
+    task = create_task(db_session, "requester", task_payload())
+    accept_task(db_session, task.id, "helper")
+    task.deadline = datetime.utcnow() - timedelta(minutes=1)
+    db_session.commit()
+    submit_task_proof(db_session, task.id, "helper", proof_payload())
+    confirm_task(db_session, task.id, "requester")
+
+    profile = recalculate_user_credit(db_session, "helper")
+    helper_snapshot = (
+        db_session.query(CreditSnapshot)
+        .filter_by(user_id="helper", role_scope="helper")
+        .order_by(CreditSnapshot.calculated_at.desc(), CreditSnapshot.id.desc())
+        .first()
+    )
+
+    assert profile["helperCreditScore"] == 85.0
+    assert helper_snapshot is not None
+    assert float(helper_snapshot.timeout_rate) == 100.0
+
+
+def test_requester_credit_recalculation_tracks_confirmation_timeout(db_session) -> None:
+    add_user(db_session, "requester", "100.00")
+    add_user(db_session, "helper", "0.00")
+    task = create_task(db_session, "requester", task_payload())
+    accept_task(db_session, task.id, "helper")
+    submit_task_proof(db_session, task.id, "helper", proof_payload())
+    task.deadline = datetime.utcnow() - timedelta(minutes=1)
+    db_session.commit()
+    confirm_task(db_session, task.id, "requester")
+
+    profile = recalculate_user_credit(db_session, "requester")
+    requester_snapshot = (
+        db_session.query(CreditSnapshot)
+        .filter_by(user_id="requester", role_scope="requester")
+        .order_by(CreditSnapshot.calculated_at.desc(), CreditSnapshot.id.desc())
+        .first()
+    )
+
+    assert profile["requesterCreditScore"] == 85.0
+    assert requester_snapshot is not None
+    assert float(requester_snapshot.timeout_rate) == 100.0
+
+
+def test_requester_credit_recalculation_tracks_post_accept_cancel_refund(db_session) -> None:
+    add_user(db_session, "requester", "100.00")
+    add_user(db_session, "helper", "0.00")
+    task = create_task(db_session, "requester", task_payload())
+    accept_task(db_session, task.id, "helper")
+    task.status = TaskStatus.CANCELLED
+    db_session.add(
+        TaskLog(
+            id="log_refund_to_requester",
+            task_id=task.id,
+            from_status=TaskStatus.DISPUTED,
+            to_status=TaskStatus.CANCELLED,
+            actor_id="requester",
+            remark="Requester-triggered refund after acceptance",
+        )
+    )
+    db_session.commit()
+
+    profile = recalculate_user_credit(db_session, "requester")
+    requester_snapshot = (
+        db_session.query(CreditSnapshot)
+        .filter_by(user_id="requester", role_scope="requester")
+        .order_by(CreditSnapshot.calculated_at.desc(), CreditSnapshot.id.desc())
+        .first()
+    )
+
+    assert profile["requesterCreditScore"] == 55.0
+    assert requester_snapshot is not None
+    assert float(requester_snapshot.post_accept_cancel_rate) == 100.0
 
 
 def test_credit_scores_are_clamped_between_zero_and_one_hundred(db_session) -> None:

@@ -1,18 +1,77 @@
-<!--
-  文件说明：
-  这是校园地图页占位文件。
-  A 同学后续应在这里把北邮校园平面图、楼宇点位、任务点和附近任务列表组合起来。
--->
 <template>
-  <section class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-    <div class="rounded-3xl bg-white p-6 shadow-sm">
-      <h2 class="text-xl font-bold text-campus-900">校园地图</h2>
-      <p class="mt-3 text-slate-500">这里将放置北邮平面图、楼宇点位和任务分布。</p>
-    </div>
-    <aside class="rounded-3xl bg-white p-6 shadow-sm">
-      <h2 class="text-xl font-bold text-campus-900">附近任务</h2>
-      <p class="mt-3 text-slate-500">这里将展示按楼宇距离排序的任务列表。</p>
+  <div class="map-page font-body">
+    <aside class="sidebar">
+      <MapHUD />
+      <div class="sidebar-grow"></div>
+      <MapLegend />
+      <PostTaskFAB />
     </aside>
-  </section>
+    <MapContainer>
+      <BuildingLayer />
+      <TaskBeaconLayer />
+      <BuildingInfoCard />
+    </MapContainer>
+  </div>
 </template>
 
+<script setup lang="ts">
+import { onMounted, onUnmounted } from "vue";
+import MapContainer from "@/components/map/MapContainer.vue";
+import BuildingLayer from "@/components/map/BuildingLayer.vue";
+import TaskBeaconLayer from "@/components/map/TaskBeaconLayer.vue";
+import MapHUD from "@/components/map/MapHUD.vue";
+import BuildingInfoCard from "@/components/map/BuildingInfoCard.vue";
+import MapLegend from "@/components/map/MapLegend.vue";
+import PostTaskFAB from "@/components/map/PostTaskFAB.vue";
+import { useMapStore } from "@/stores/map";
+
+const mapStore = useMapStore();
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") mapStore.clearAll();
+}
+
+onMounted(() => document.addEventListener("keydown", onKeydown));
+onUnmounted(() => document.removeEventListener("keydown", onKeydown));
+</script>
+
+<style scoped>
+.map-page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #e9e3d7;
+}
+
+.sidebar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  bottom: 18px;
+  width: 320px;
+  border-radius: 22px;
+  background: #faf7f1;
+  border: 1px solid rgba(31, 42, 58, 0.04);
+  box-shadow: 0 8px 30px rgba(20, 29, 40, 0.06);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: sidebar-in 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-grow {
+  flex: 1;
+}
+
+@keyframes sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+</style>

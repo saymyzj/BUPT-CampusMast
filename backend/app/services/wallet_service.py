@@ -318,7 +318,10 @@ def settle_split(
             requester_share,
             related_task_id=related_task_id,
             settlement_key=related_task_id,
-            description="Task reward split requester allocation; full frozen reward consumed",
+            description=(
+                f"Task reward split: frozen consumed {money_text(value)}, "
+                f"requester refund {money_text(requester_share)}"
+            ),
         )
 
         if helper_share > 0:
@@ -329,7 +332,7 @@ def settle_split(
                 TransactionType.SETTLE_SPLIT,
                 helper_share,
                 related_task_id=related_task_id,
-                description="Task reward split helper allocation",
+                description=f"Task reward split: helper payout {money_text(helper_share)}",
             )
         return requester_wallet, helper_wallet
     except IntegrityError as exc:

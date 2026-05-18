@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.dependencies.auth import get_current_user
 from app.dependencies.database import get_db
+from app.models.user import User
 from app.schemas.credit import RatingCreateRequest
 from app.schemas.task import TaskCreateRequest, TaskProofRequest, TaskRejectRequest
 from app.services.credit_service import CreditError, rate_task_partner, rating_to_dict
@@ -73,10 +74,10 @@ def list_tasks(
 def create_task(
     payload: TaskCreateRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        task = create_task_service(db, current_user["id"], payload)
+        task = create_task_service(db, current_user.id, payload)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
@@ -88,12 +89,12 @@ def list_my_posted_tasks(
     limit: int = Query(20, ge=1, le=100),
     status_filter: str | None = Query(None, alias="status"),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
         rows, total = list_user_tasks(
             db,
-            current_user["id"],
+            current_user.id,
             role="posted",
             page=page,
             limit=limit,
@@ -110,12 +111,12 @@ def list_my_accepted_tasks(
     limit: int = Query(20, ge=1, le=100),
     status_filter: str | None = Query(None, alias="status"),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
         rows, total = list_user_tasks(
             db,
-            current_user["id"],
+            current_user.id,
             role="accepted",
             page=page,
             limit=limit,
@@ -139,10 +140,10 @@ def get_task(task_id: str, db: Session = Depends(get_db)) -> dict:
 def accept_task_route(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        task = accept_task(db, task_id, current_user["id"])
+        task = accept_task(db, task_id, current_user.id)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
@@ -153,10 +154,10 @@ def submit_task_route(
     task_id: str,
     payload: TaskProofRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        task = submit_task_proof(db, task_id, current_user["id"], payload)
+        task = submit_task_proof(db, task_id, current_user.id, payload)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
@@ -166,10 +167,10 @@ def submit_task_route(
 def confirm_task_route(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        task = confirm_task(db, task_id, current_user["id"])
+        task = confirm_task(db, task_id, current_user.id)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
@@ -180,10 +181,10 @@ def reject_task_route(
     task_id: str,
     payload: TaskRejectRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        task = reject_task(db, task_id, current_user["id"], payload.reason)
+        task = reject_task(db, task_id, current_user.id, payload.reason)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
@@ -193,10 +194,10 @@ def reject_task_route(
 def cancel_task_route(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        task = cancel_task(db, task_id, current_user["id"])
+        task = cancel_task(db, task_id, current_user.id)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
@@ -206,10 +207,10 @@ def cancel_task_route(
 def abandon_task_route(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        task = abandon_task(db, task_id, current_user["id"])
+        task = abandon_task(db, task_id, current_user.id)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
@@ -220,10 +221,10 @@ def rate_task_route(
     task_id: str,
     payload: RatingCreateRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        rating = rate_task_partner(db, task_id, current_user["id"], payload)
+        rating = rate_task_partner(db, task_id, current_user.id, payload)
     except CreditError as exc:
         return _credit_error_response(exc)
     return success(rating_to_dict(rating))

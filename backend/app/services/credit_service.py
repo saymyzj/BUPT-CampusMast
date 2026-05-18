@@ -125,6 +125,59 @@ def _has_transition(db: Session, task_id: str, from_status: TaskStatus, to_statu
     )
 
 
+def _transition_time(db: Session, task_id: str, from_status: TaskStatus, to_status: TaskStatus):
+    return (
+        db.execute(
+            select(TaskLog.created_at)
+            .where(
+                TaskLog.task_id == task_id,
+                TaskLog.from_status == from_status,
+                TaskLog.to_status == to_status,
+            )
+            .order_by(TaskLog.created_at.asc(), TaskLog.id.asc())
+        )
+        .scalars()
+        .first()
+    )
+
+
+def _transition_actor(db: Session, task_id: str, from_status: TaskStatus, to_status: TaskStatus) -> str | None:
+    return (
+        db.execute(
+            select(TaskLog.actor_id)
+            .where(
+                TaskLog.task_id == task_id,
+                TaskLog.from_status == from_status,
+                TaskLog.to_status == to_status,
+            )
+            .order_by(TaskLog.created_at.asc(), TaskLog.id.asc())
+        )
+        .scalars()
+        .first()
+    )
+
+
+def _has_post_accept_cancel_trace(db: Session, task: Task, requester_id: str) -> bool:
+    return (
+        task.status == TaskStatus.CANCELLED
+        and _has_transition(db, task.id, TaskStatus.PENDING, TaskStatus.IN_PROGRESS)
+        and _transition_actor(db, task.id, TaskStatus.DISPUTED, TaskStatus.CANCELLED) == requester_id
+    )
+
+
+def _helper_timed_out(db: Session, task: Task) -> bool:
+    proof_time = _transition_time(db, task.id, TaskStatus.IN_PROGRESS, TaskStatus.PENDING_REVIEW)
+    finished_at = proof_time or task.completed_at
+    return bool(finished_at and task.deadline and finished_at > task.deadline)
+
+
+def _requester_timed_out(db: Session, task: Task) -> bool:
+    review_time = _transition_time(db, task.id, TaskStatus.PENDING_REVIEW, TaskStatus.COMPLETED)
+    if review_time is None:
+        review_time = _transition_time(db, task.id, TaskStatus.PENDING_REVIEW, TaskStatus.DISPUTED)
+    return bool(review_time and task.deadline and review_time > task.deadline)
+
+
 def _transition_count(db: Session, user_id: str, from_status: TaskStatus, to_status: TaskStatus) -> int:
     return (
         db.query(TaskLog)
@@ -138,7 +191,8 @@ def _transition_count(db: Session, user_id: str, from_status: TaskStatus, to_sta
 
 
 def _helper_metrics(db: Session, user_id: str) -> dict[str, Decimal]:
-    completed = db.query(Task).filter(Task.helper_id == user_id, Task.status == TaskStatus.COMPLETED).count()
+    completed_tasks = db.query(Task).filter(Task.helper_id == user_id, Task.status == TaskStatus.COMPLETED).all()
+    completed = len(completed_tasks)
     abandoned = _transition_count(db, user_id, TaskStatus.IN_PROGRESS, TaskStatus.PENDING)
     disputed_tasks = db.query(Task).filter(Task.helper_id == user_id, Task.status == TaskStatus.CANCELLED).all()
     dispute_lost = sum(
@@ -146,6 +200,7 @@ def _helper_metrics(db: Session, user_id: str) -> dict[str, Decimal]:
         for task in disputed_tasks
         if _has_transition(db, task.id, TaskStatus.DISPUTED, TaskStatus.CANCELLED)
     )
+    timed_out = sum(1 for task in completed_tasks if _helper_timed_out(db, task))
     total = completed + abandoned + dispute_lost
     if total == 0:
         return {
@@ -158,7 +213,7 @@ def _helper_metrics(db: Session, user_id: str) -> dict[str, Decimal]:
     return {
         "completion_rate": _rate(completed, total),
         "average_rating": _average_rating_score(db, user_id),
-        "timeout_rate": ZERO,
+        "timeout_rate": _rate(timed_out, total),
         "abandon_rate": _rate(abandoned, total),
         "dispute_lose_rate": _rate(dispute_lost, total),
     }
@@ -176,18 +231,20 @@ def _requester_metrics(db: Session, user_id: str) -> dict[str, Decimal]:
             "post_accept_cancel_rate": ZERO,
         }
     completed = sum(1 for task in tasks if task.status == TaskStatus.COMPLETED)
+    timed_out = sum(1 for task in tasks if _requester_timed_out(db, task))
     malicious_disputes = sum(
         1
         for task in tasks
         if task.status == TaskStatus.COMPLETED
         and _has_transition(db, task.id, TaskStatus.DISPUTED, TaskStatus.COMPLETED)
     )
+    post_accept_cancels = sum(1 for task in tasks if _has_post_accept_cancel_trace(db, task, user_id))
     return {
         "completion_rate": _rate(completed, len(tasks)),
         "average_rating": _average_rating_score(db, user_id),
-        "timeout_rate": ZERO,
+        "timeout_rate": _rate(timed_out, len(tasks)),
         "malicious_dispute_rate": _rate(malicious_disputes, len(tasks)),
-        "post_accept_cancel_rate": ZERO,
+        "post_accept_cancel_rate": _rate(post_accept_cancels, len(tasks)),
     }
 
 

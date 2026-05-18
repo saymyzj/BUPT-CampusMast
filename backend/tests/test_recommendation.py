@@ -80,7 +80,7 @@ def add_user(db_session, user_id: str, available: str = "200.00") -> None:
 
 
 def add_building(db_session, code: str, x: float, y: float) -> None:
-    db_session.add(CampusBuilding(code=code, name=code, x_coord=x, y_coord=y, is_active=True))
+    db_session.add(CampusBuilding(code=code, name=code, latitude=x, longitude=y, is_active=True))
     db_session.commit()
 
 
@@ -156,7 +156,7 @@ def pending_task(db_session, requester_id: str, **kwargs) -> Task:
 def recommendation_api_client(db_session):
     app = FastAPI()
     app.include_router(recommendation_router)
-    current_user = {"id": "helper", "role": "USER", "nickname": "helper"}
+    current_user = SimpleNamespace(id="helper", role="USER", nickname="helper")
 
     def override_db():
         yield db_session

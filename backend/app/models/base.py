@@ -25,6 +25,13 @@ class Base(DeclarativeBase):
     metadata = metadata
 
 
-engine = create_engine(settings.database_url, echo=settings.app_debug, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+engine_kwargs: dict = {
+    "echo": settings.app_debug,
+    "future": True,
+    "pool_pre_ping": True,
+}
+if settings.database_url.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
 
+engine = create_engine(settings.database_url, **engine_kwargs)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)

@@ -44,6 +44,7 @@ def _reset_mysql_schema(database_url: str) -> None:
 def _upgrade_with_alembic(database_url: str) -> None:
     backend_dir = Path(__file__).resolve().parents[1]
     alembic_cfg = Config(str(backend_dir / "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
     original_database_url = settings.database_url
     settings.database_url = database_url
     try:

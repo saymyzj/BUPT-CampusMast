@@ -1,4 +1,9 @@
-"""Alembic environment entrypoint for CampusMast backend migrations."""
+"""
+文件说明：
+这是 Alembic 的环境入口文件。
+当前先完成数据库 URL 读取与元数据绑定，确保后续可以在不重搭环境的前提下
+直接生成迁移。真正的模型导入会通过 app.models.base.Base 统一收口。
+"""
 from __future__ import annotations
 
 from logging.config import fileConfig
@@ -7,7 +12,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.config import settings
-from app.models import *  # noqa: F403
+from app import models  # noqa: F401
 from app.models.base import Base
 
 config = context.config

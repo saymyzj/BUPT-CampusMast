@@ -1,36 +1,81 @@
 """
-Durable notification helpers.
-
-WebSocket gateway ownership is outside member B. These helpers write the
-notification rows and publish a best-effort Redis event that the gateway can
-consume when that module is wired by the owner.
+文件说明：
+这是通知服务文件。
+负责通知落库、列表查询、已读更新与 WebSocket 推送。
 """
 from __future__ import annotations
 
-import json
+from typing import Any
 
-from redis.exceptions import RedisError
+from fastapi import status
 from sqlalchemy.orm import Session
 
-from app.models.enums import Role
 from app.models.notification import Notification
-from app.models.task import Task
-from app.models.user import User
-from app.services.wallet_service import new_id
-from app.utils.redis import get_redis_client
-
-TASK_EVENT_COPY = {
-    "TASK_ACCEPTED": ("Task accepted", "Your task has been accepted."),
-    "TASK_SUBMITTED": ("Task submitted", "The helper has submitted completion proof."),
-    "TASK_CONFIRMED": ("Task confirmed", "The task has been confirmed."),
-    "TASK_REJECTED": ("Task rejected", "The submitted proof was rejected."),
-    "TASK_CANCELLED": ("Task cancelled", "The task has been cancelled or expired."),
-    "TASK_DISPUTED": ("Task disputed", "The task has entered dispute handling."),
-    "DISPUTE_RESOLVED": ("Dispute resolved", "The dispute has been resolved."),
-}
+from app.utils.errors import AppError
+from app.utils.ids import generate_id
+from app.utils.serialization import to_iso8601
+from app.websockets.events import NOTIFICATION_CREATED, UNREAD_SYNC
+from app.websockets.manager import manager
 
 
-def notification_to_dict(notification: Notification) -> dict:
+def list_notifications(db: Session, *, user_id: str, page: int, limit: int) -> tuple[list[dict[str, Any]], int]:
+    query = db.query(Notification).filter(Notification.user_id == user_id)
+    total = query.count()
+    rows = query.order_by(Notification.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    return [serialize_notification(row) for row in rows], total
+
+
+def mark_notification_read(db: Session, *, user_id: str, notification_id: str) -> dict[str, Any]:
+    notification = db.get(Notification, notification_id)
+    if notification is None or notification.user_id != user_id:
+        raise AppError("NOTIFICATION_NOT_FOUND", "通知不存在", status.HTTP_404_NOT_FOUND)
+    notification.is_read = True
+    db.commit()
+    db.refresh(notification)
+    return serialize_notification(notification)
+
+
+def mark_all_notifications_read(db: Session, *, user_id: str) -> int:
+    rows = db.query(Notification).filter(Notification.user_id == user_id, Notification.is_read.is_(False)).all()
+    for row in rows:
+        row.is_read = True
+    db.commit()
+    return len(rows)
+
+
+def get_unread_count(db: Session, *, user_id: str) -> int:
+    return db.query(Notification).filter(Notification.user_id == user_id, Notification.is_read.is_(False)).count()
+
+
+def create_notification(
+    db: Session,
+    *,
+    user_id: str,
+    type_: str,
+    title: str,
+    body: str,
+    related_task_id: str | None = None,
+) -> Notification:
+    row = Notification(
+        id=generate_id("notify"),
+        user_id=user_id,
+        type=type_,
+        title=title,
+        body=body,
+        related_task_id=related_task_id,
+        is_read=False,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+async def push_notification_events(db: Session, *, user_id: str, notification: Notification) -> None:
+    await manager.broadcast(f"notification:{user_id}", NOTIFICATION_CREATED, serialize_notification(notification))
+    await manager.broadcast(f"notification:{user_id}", UNREAD_SYNC, {"unreadCount": get_unread_count(db, user_id=user_id)})
+
+
+def serialize_notification(notification: Notification) -> dict[str, Any]:
     return {
         "id": notification.id,
         "type": notification.type,
@@ -38,85 +83,5 @@ def notification_to_dict(notification: Notification) -> dict:
         "body": notification.body,
         "relatedTaskId": notification.related_task_id,
         "isRead": notification.is_read,
-        "createdAt": notification.created_at.isoformat() if notification.created_at else "",
-    }
-
-
-def _publish_notification(notification: Notification) -> None:
-    try:
-        get_redis_client().publish(
-            f"notifications:user:{notification.user_id}",
-            json.dumps(notification_to_dict(notification), ensure_ascii=False),
-        )
-    except RedisError:
-        return None
-
-
-def create_notification(
-    db: Session,
-    user_id: str,
-    event_type: str,
-    title: str,
-    body: str,
-    *,
-    related_task_id: str | None = None,
-) -> Notification:
-    notification = Notification(
-        id=new_id("notify"),
-        user_id=user_id,
-        type=event_type,
-        title=title,
-        body=body,
-        related_task_id=related_task_id,
-        is_read=False,
-    )
-    db.add(notification)
-    db.flush()
-    _publish_notification(notification)
-    return notification
-
-
-def _task_event_recipients(db: Session, task: Task, event_name: str) -> list[str]:
-    recipients: set[str] = set()
-    if event_name in {"TASK_ACCEPTED", "TASK_SUBMITTED"}:
-        recipients.add(task.requester_id)
-    elif event_name in {"TASK_CONFIRMED", "TASK_REJECTED"} and task.helper_id:
-        recipients.add(task.helper_id)
-    elif event_name in {"TASK_CANCELLED", "DISPUTE_RESOLVED"}:
-        recipients.add(task.requester_id)
-        if task.helper_id:
-            recipients.add(task.helper_id)
-    elif event_name == "TASK_DISPUTED":
-        recipients.add(task.requester_id)
-        if task.helper_id:
-            recipients.add(task.helper_id)
-        admin_ids = db.query(User.id).filter(User.role == Role.ADMIN).all()
-        recipients.update(row[0] for row in admin_ids)
-    return sorted(recipients)
-
-
-def notify_task_event(db: Session, task: Task, event_name: str) -> list[Notification]:
-    title, body = TASK_EVENT_COPY.get(event_name, ("Task update", "The task status has changed."))
-    return [
-        create_notification(
-            db,
-            user_id,
-            event_name,
-            title,
-            body,
-            related_task_id=task.id,
-        )
-        for user_id in _task_event_recipients(db, task, event_name)
-    ]
-
-
-def build_stub_notification() -> dict:
-    return {
-        "id": "notify_stub",
-        "type": "SYSTEM_NOTICE",
-        "title": "Scaffold notification",
-        "body": "This is a scaffold notification for integration checks.",
-        "relatedTaskId": None,
-        "isRead": False,
-        "createdAt": "2026-04-14T00:00:00Z",
+        "createdAt": to_iso8601(notification.created_at),
     }

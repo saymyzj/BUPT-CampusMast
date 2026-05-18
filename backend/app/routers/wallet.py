@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.dependencies.auth import get_current_user
 from app.dependencies.database import get_db
+from app.models.user import User
 from app.schemas.wallet import WalletAmountRequest
 from app.services.wallet_service import (
     WalletError,
@@ -30,9 +31,9 @@ def _error_response(exc: WalletError, status_code: int = status.HTTP_409_CONFLIC
 @router.get("/balance")
 def get_balance(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    wallet = get_or_create_wallet(db, current_user["id"])
+    wallet = get_or_create_wallet(db, current_user.id)
     db.commit()
     db.refresh(wallet)
     return success(wallet_to_dict(wallet))
@@ -43,10 +44,10 @@ def list_transactions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        rows, total = list_wallet_transactions(db, current_user["id"], page=page, limit=limit)
+        rows, total = list_wallet_transactions(db, current_user.id, page=page, limit=limit)
     except WalletError as exc:
         return _error_response(exc)
     return success(rows, meta={"page": page, "limit": limit, "total": total})
@@ -56,10 +57,10 @@ def list_transactions(
 def topup_wallet(
     payload: WalletAmountRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        wallet = top_up(db, current_user["id"], payload.amount)
+        wallet = top_up(db, current_user.id, payload.amount)
     except WalletError as exc:
         return _error_response(exc)
     return success(wallet_to_dict(wallet))
@@ -69,10 +70,10 @@ def topup_wallet(
 def withdraw_wallet(
     payload: WalletAmountRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        wallet = withdraw(db, current_user["id"], payload.amount)
+        wallet = withdraw(db, current_user.id, payload.amount)
     except WalletError as exc:
         return _error_response(exc)
     return success(wallet_to_dict(wallet))

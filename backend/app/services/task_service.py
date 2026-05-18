@@ -26,7 +26,8 @@ from app.services.wallet_service import (
 )
 
 HELPER_CREDIT_THRESHOLD = Decimal("60.00")
-HELPER_CREDIT_THRESHOLD_CONFIG_KEY = "task.acceptance.helperCreditThreshold"
+HELPER_CREDIT_THRESHOLD_CONFIG_KEY = "helperCreditThreshold"
+LEGACY_HELPER_CREDIT_THRESHOLD_CONFIG_KEY = "task.acceptance.helperCreditThreshold"
 
 TRANSITION_RULES: dict[tuple[TaskStatus, TaskStatus], dict[str, str]] = {
     (TaskStatus.PENDING, TaskStatus.IN_PROGRESS): {
@@ -141,9 +142,14 @@ def _load_task(db: Session, task_id: str, *, for_update: bool = False) -> Task:
 def _helper_credit_threshold(db: Session) -> Decimal:
     config = db.get(SystemConfig, HELPER_CREDIT_THRESHOLD_CONFIG_KEY)
     if config is None:
+        config = db.get(SystemConfig, LEGACY_HELPER_CREDIT_THRESHOLD_CONFIG_KEY)
+    if config is None:
         return HELPER_CREDIT_THRESHOLD
     try:
-        threshold = Decimal(str(json.loads(config.config_value)))
+        value = json.loads(config.config_value)
+        if isinstance(value, dict):
+            value = value.get("value")
+        threshold = Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError, json.JSONDecodeError):
         return HELPER_CREDIT_THRESHOLD
     if threshold < 0 or threshold > 100:
@@ -164,9 +170,20 @@ def _task_event_name(from_status: TaskStatus, to_status: TaskStatus) -> str:
 
 
 def _emit_task_event(_db: Session, _task: Task, _event_name: str) -> None:
-    from app.services.notification_service import notify_task_event
+    from app.services.notification_service import create_notification
 
-    notify_task_event(_db, _task, _event_name)
+    recipients = {_task.requester_id}
+    if _task.helper_id is not None:
+        recipients.add(_task.helper_id)
+    for user_id in recipients:
+        create_notification(
+            _db,
+            user_id=user_id,
+            type_=_event_name,
+            title="Task status updated",
+            body=f"Task {_task.id} status changed to {_task.status.value}",
+            related_task_id=_task.id,
+        )
 
 
 def _recalculate_participant_credit(db: Session, task: Task) -> None:
@@ -275,6 +292,25 @@ def create_task(db: Session, requester_id: str, payload) -> Task:
     if deadline <= _now():
         raise TaskError("INVALID_TASK_DEADLINE", "Task deadline must be in the future")
     _load_user(db, requester_id)
+    from app.services.moderation_service import create_moderation_record, moderate_task_content
+
+    moderation_result, hit_tags, model_output = moderate_task_content(
+        user_id=requester_id,
+        title=payload.title,
+        description=payload.description,
+        image_urls=payload.imageUrls or [],
+    )
+    if moderation_result == ModerationResult.BLOCK:
+        create_moderation_record(
+            db,
+            user_id=requester_id,
+            task_id=None,
+            risk_level=moderation_result,
+            hit_tags=hit_tags,
+            model_output=model_output,
+        )
+        db.commit()
+        raise TaskError("MODERATION_BLOCKED", "Task content was blocked by moderation")
 
     try:
         task = Task(
@@ -289,11 +325,19 @@ def create_task(db: Session, requester_id: str, payload) -> Task:
             deadline=deadline,
             image_urls=json.dumps(payload.imageUrls or []),
             requester_id=requester_id,
-            moderation_result=ModerationResult.ALLOW,
-            needs_admin_review=False,
+            moderation_result=moderation_result,
+            needs_admin_review=moderation_result == ModerationResult.REVIEW,
         )
         db.add(task)
         db.flush()
+        create_moderation_record(
+            db,
+            user_id=requester_id,
+            task_id=task.id,
+            risk_level=moderation_result,
+            hit_tags=hit_tags,
+            model_output=model_output,
+        )
         freeze_funds(db, requester_id, reward, related_task_id=task.id)
         _log_transition(db, task, TaskStatus.PENDING, TaskStatus.PENDING, requester_id, "Task created and reward frozen")
         db.commit()
@@ -313,7 +357,10 @@ def _building_distance(db: Session, from_code: str | None, to_code: str | None) 
     target = db.get(CampusBuilding, to_code)
     if origin is None or target is None:
         return None
-    return math.dist((float(origin.x_coord), float(origin.y_coord)), (float(target.x_coord), float(target.y_coord)))
+    return math.dist(
+        (float(origin.latitude), float(origin.longitude)),
+        (float(target.latitude), float(target.longitude)),
+    )
 
 
 def _apply_task_sort(query, sort_by: str | None):
@@ -526,6 +573,7 @@ def confirm_task(db: Session, task_id: str, requester_id: str) -> Task:
         settle_reward(db, task.requester_id, task.helper_id, task.reward, related_task_id=task.id)
         task.completed_at = _now()
         _set_status(db, task, TaskStatus.COMPLETED, requester_id, "Task confirmed")
+        _recalculate_participant_credit(db, task)
         db.commit()
         db.refresh(task)
         return task
@@ -558,8 +606,13 @@ def abandon_task(db: Session, task_id: str, helper_id: str) -> Task:
             raise TaskError("ONLY_IN_PROGRESS_TASK_CAN_BE_ABANDONED", "Only in-progress tasks can be abandoned")
         if task.helper_id != helper_id:
             raise TaskError("ONLY_ASSIGNED_HELPER_CAN_ABANDON", "Only assigned helper can abandon task")
+        old_helper_id = task.helper_id
         task.helper_id = None
         _set_status(db, task, TaskStatus.PENDING, helper_id, "Helper abandoned task")
+        db.flush()
+        from app.services.credit_service import recalculate_user_credit
+
+        recalculate_user_credit(db, old_helper_id, commit=False)
         db.commit()
         db.refresh(task)
         return task

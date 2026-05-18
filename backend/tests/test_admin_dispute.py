@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -20,7 +21,8 @@ from app.models.notification import Notification
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.routers.admin import router as admin_router
-import app.services.notification_service as notification_service
+from app.utils.errors import AppError
+from app.utils.response import failure
 from app.services.task_service import accept_task, create_task, dispute_in_progress_task
 from app.services.wallet_service import wallet_to_dict
 
@@ -41,15 +43,6 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(engine)
-
-
-@pytest.fixture(autouse=True)
-def disable_redis_publish(monkeypatch):
-    class UnavailableRedis:
-        def publish(self, _channel: str, _payload: str):
-            raise notification_service.RedisError("redis disabled for isolated tests")
-
-    monkeypatch.setattr(notification_service, "get_redis_client", lambda: UnavailableRedis())
 
 
 def add_user(db_session, user_id: str, *, role: Role = Role.USER, available: str = "0.00") -> None:
@@ -101,11 +94,15 @@ def admin_client(db_session):
     app = FastAPI()
     app.include_router(admin_router)
 
+    @app.exception_handler(AppError)
+    async def handle_app_error(_request, exc: AppError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content=failure(exc.code, exc.message, exc.details))
+
     def override_db():
         yield db_session
 
     def override_admin():
-        return {"id": "admin", "role": "ADMIN", "nickname": "admin"}
+        return SimpleNamespace(id="admin", role="ADMIN", nickname="admin")
 
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[require_admin] = override_admin
@@ -140,24 +137,16 @@ def test_admin_resolve_dispute_split_requires_ratio(admin_client, db_session) ->
         json={"resolution": "split", "note": "missing ratio"},
     )
 
-    assert response.status_code == 409
+    assert response.status_code == 400
     assert response.json()["error"]["code"] == "SPLIT_RATIO_REQUIRED"
     assert db_session.get(type(task), task.id).status == TaskStatus.DISPUTED
 
 
-def test_task_event_notification_attempts_redis_publish(db_session, monkeypatch) -> None:
-    published: list[tuple[str, str]] = []
-
-    class FakeRedis:
-        def publish(self, channel: str, payload: str):
-            published.append((channel, payload))
-
-    monkeypatch.setattr(notification_service, "get_redis_client", lambda: FakeRedis())
+def test_task_event_writes_notifications(db_session) -> None:
     task = disputed_task(db_session)
 
     response_task = db_session.get(type(task), task.id)
+    notifications = db_session.query(Notification).filter_by(type="TASK_DISPUTED", related_task_id=task.id).all()
 
     assert response_task.status == TaskStatus.DISPUTED
-    assert any(channel == "notifications:user:requester" for channel, _payload in published)
-    assert any(channel == "notifications:user:helper" for channel, _payload in published)
-    assert any(channel == "notifications:user:admin" for channel, _payload in published)
+    assert sorted(row.user_id for row in notifications) == ["helper", "requester"]

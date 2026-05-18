@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -72,7 +73,7 @@ def add_user_with_wallet(db_session, user_id: str, available: str = "0.00", froz
 def wallet_api_client(db_session):
     app = FastAPI()
     app.include_router(wallet_router)
-    current_user = {"id": "user", "role": "USER", "nickname": "user"}
+    current_user = SimpleNamespace(id="user", role="USER", nickname="user")
 
     def override_db():
         yield db_session
@@ -183,8 +184,8 @@ def test_wallet_split_settlement_audits_both_wallets(db_session) -> None:
     assert {
         row.description for row in rows
     } == {
-        "Task reward split requester allocation; full frozen reward consumed",
-        "Task reward split helper allocation",
+        "Task reward split: frozen consumed 20.00, requester refund 15.00",
+        "Task reward split: helper payout 5.00",
     }
     assert [row.settlement_key for row in rows].count("task_1") == 1
 
