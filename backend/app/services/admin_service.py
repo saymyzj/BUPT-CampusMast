@@ -5,21 +5,28 @@
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from fastapi import status
 from sqlalchemy.orm import Session
 
 from app.models.chat import ChatMessage
-from app.models.enums import TaskStatus
 from app.models.moderation import ModerationRecord
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.admin import AdminResolveDisputeRequest, AdminUpdateUserRequest
 from app.services.auth_service import serialize_user
 from app.services.moderation_service import serialize_moderation_record
+from app.services.task_service import (
+    TaskError,
+    close_dispute_by_admin,
+    resolve_dispute_for_helper,
+    resolve_dispute_for_requester,
+    resolve_dispute_split,
+)
+from app.services.wallet_service import WalletError
 from app.utils.errors import AppError
-from app.utils.ids import generate_id
 from app.utils.serialization import decimal_to_money, to_iso8601
 
 
@@ -70,42 +77,34 @@ def list_tasks(
     return [serialize_task_for_admin(db, row) for row in rows], total
 
 
-def resolve_dispute(db: Session, *, task_id: str, payload: AdminResolveDisputeRequest, admin_id: str) -> dict[str, Any]:
-    task = db.get(Task, task_id)
-    if task is None:
-        raise AppError("TASK_NOT_FOUND", "任务不存在", status.HTTP_404_NOT_FOUND)
-    if task.status != TaskStatus.DISPUTED:
-        raise AppError("TASK_NOT_DISPUTED", "当前任务不处于争议状态", status.HTTP_409_CONFLICT)
-
-    previous_status = task.status.value
-    resolution = payload.resolution.lower()
-    if resolution == "refund":
-        task.status = TaskStatus.CANCELLED
-    elif resolution == "settle":
-        task.status = TaskStatus.COMPLETED
-    elif resolution == "split":
-        task.status = TaskStatus.CLOSED_BY_ADMIN
-    elif resolution == "close":
-        task.status = TaskStatus.CLOSED_BY_ADMIN
+def _raise_dispute_app_error(exc: TaskError | WalletError) -> None:
+    if exc.code == "TASK_NOT_FOUND":
+        status_code = status.HTTP_404_NOT_FOUND
+    elif exc.code in {"INVALID_SPLIT_RATIO", "INVALID_DISPUTE_RESOLUTION"}:
+        status_code = status.HTTP_400_BAD_REQUEST
     else:
-        raise AppError("INVALID_RESOLUTION", "无效的争议处理结果", status.HTTP_400_BAD_REQUEST)
+        status_code = status.HTTP_409_CONFLICT
+    raise AppError(exc.code, exc.message, status_code) from exc
 
-    task.version += 1
-    task.needs_admin_review = False
-    from app.models.task import TaskLog
 
-    db.add(
-        TaskLog(
-            id=generate_id("tlog"),
-            task_id=task.id,
-            from_status=TaskStatus(previous_status),
-            to_status=task.status,
-            actor_id=admin_id,
-            remark=payload.note,
-        )
-    )
-    db.commit()
-    db.refresh(task)
+def resolve_dispute(db: Session, *, task_id: str, payload: AdminResolveDisputeRequest, admin_id: str) -> dict[str, Any]:
+    resolution = payload.resolution.lower()
+    try:
+        if resolution == "refund":
+            task = resolve_dispute_for_requester(db, task_id, admin_id, payload.note)
+        elif resolution == "settle":
+            task = resolve_dispute_for_helper(db, task_id, admin_id, payload.note)
+        elif resolution == "split":
+            if payload.splitRatio is None:
+                raise AppError("SPLIT_RATIO_REQUIRED", "splitRatio is required when resolution is split", status.HTTP_400_BAD_REQUEST)
+            task = resolve_dispute_split(db, task_id, admin_id, Decimal(str(payload.splitRatio)), payload.note)
+        elif resolution == "close":
+            task = close_dispute_by_admin(db, task_id, admin_id, payload.note)
+        else:
+            raise AppError("INVALID_RESOLUTION", "无效的争议处理结果", status.HTTP_400_BAD_REQUEST)
+    except (TaskError, WalletError) as exc:
+        _raise_dispute_app_error(exc)
+
     return serialize_task_for_admin(db, task)
 
 
