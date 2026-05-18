@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -15,6 +15,7 @@ from app.models.base import Base
 
 class Rating(Base):
     __tablename__ = "ratings"
+    __table_args__ = (UniqueConstraint("task_id", "from_user_id", name="uq_ratings_task_id_from_user_id"),)
 
     id: Mapped[str] = mapped_column(String(25), primary_key=True)
     task_id: Mapped[str] = mapped_column(String(25), ForeignKey("tasks.id"), nullable=False)
@@ -40,4 +41,3 @@ class CreditSnapshot(Base):
     post_accept_cancel_rate: Mapped[float | None] = mapped_column(Numeric(5, 2))
     calculated_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
     calculated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-

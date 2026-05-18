@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -16,6 +16,10 @@ from app.models.enums import ModerationResult, TaskCategory, TaskStatus
 
 class Task(Base):
     __tablename__ = "tasks"
+    __table_args__ = (
+        Index("ix_tasks_status_created_at", "status", "created_at"),
+        Index("ix_tasks_building_code_status", "building_code", "status"),
+    )
 
     id: Mapped[str] = mapped_column(String(25), primary_key=True)
     title: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -51,4 +55,3 @@ class TaskLog(Base):
     actor_id: Mapped[str] = mapped_column(String(25), ForeignKey("users.id"), nullable=False)
     remark: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
