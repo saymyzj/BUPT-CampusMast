@@ -49,8 +49,9 @@ def register_user(db: Session, payload: AuthRegisterRequest) -> AuthPayload:
 
 
 def login_user(db: Session, payload: AuthLoginRequest) -> AuthPayload:
-    email = payload.studentEmail.lower().strip()
-    user = db.query(User).filter(User.student_email == email).one_or_none()
+    account = payload.studentEmail.strip()
+    normalized_account = account.lower() if "@" in account else account
+    user = db.query(User).filter(User.student_email == normalized_account).one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
         raise AppError("INVALID_CREDENTIALS", "邮箱或密码错误", status.HTTP_401_UNAUTHORIZED)
     if not user.is_active:

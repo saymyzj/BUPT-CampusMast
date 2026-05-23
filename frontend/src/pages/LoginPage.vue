@@ -52,7 +52,7 @@
           <span>学校邮箱</span>
           <div class="control">
             <i>✉</i>
-            <input v-model.trim="form.studentEmail" type="email" required placeholder="xxx@bupt.edu.cn" />
+            <input v-model.trim="form.studentEmail" type="text" required placeholder="Admin / user01 / xxx@bupt.edu.cn" />
           </div>
         </label>
 
