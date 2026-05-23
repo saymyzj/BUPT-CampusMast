@@ -3,312 +3,178 @@
 </template>
 
 <script setup lang="ts">
-import { watch, onUnmounted } from "vue";
+import { watch, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
 import L from "leaflet";
-import { buildings } from "@/data/buildings";
 import { useMapStore } from "@/stores/map";
+import { useAuthStore } from "@/stores/auth";
 import { useMapContext } from "@/composables/useLeafletMap";
-import { CATEGORY_COLORS } from "@/types/map";
+import { acceptTask } from "@/api/modules/task";
+import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/types/map";
 
-type PopupPlacement =
-  | "top"
-  | "top-right"
-  | "right"
-  | "bottom-right"
-  | "bottom"
-  | "bottom-left"
-  | "left"
-  | "top-left";
-
+const router = useRouter();
 const { map, toLatLng } = useMapContext();
 const mapStore = useMapStore();
+const authStore = useAuthStore();
 const layers: L.Layer[] = [];
-let hoverCloseTimer: number | null = null;
-const POPUP_VIEWPORT_PADDING = 18;
-const POPUP_ANCHOR_GAP = 20;
-const POPUP_TIP_SIZE = 14;
+const markerMap = new Map<string, L.Marker>();
+let boundMap: L.Map | null = null;
 
-function clearHoverTimer() {
-  if (hoverCloseTimer !== null) {
-    window.clearTimeout(hoverCloseTimer);
-    hoverCloseTimer = null;
+function refreshMarkerPositions() {
+  for (const marker of markerMap.values()) {
+    marker.setLatLng(marker.getLatLng());
+    (marker as any).update?.();
   }
+}
+
+function bindMapSync(m: L.Map) {
+  if (boundMap === m) return;
+  if (boundMap) {
+    boundMap.off("zoom zoomend moveend viewreset resize", refreshMarkerPositions);
+  }
+  boundMap = m;
+  m.on("zoom zoomend moveend viewreset resize", refreshMarkerPositions);
+}
+
+function escapeHtml(value: string | undefined | null) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function buildMarkerIcon(pinId: string) {
+  const pin = mapStore.visiblePins.find((item) => item.id === pinId);
+  const color = pin ? CATEGORY_COLORS[pin.category] : "#7c4dff";
+  const icon = pin ? CATEGORY_ICONS[pin.category] : "•";
+
+  return L.divIcon({
+    className: "task-pin-shell",
+    html: `
+      <span class="task-pin-pulse" style="border-color:${color}"></span>
+      <span class="task-pin" style="background:${color}">
+        <span class="task-pin-icon">${icon}</span>
+      </span>
+    `,
+    iconSize: [46, 58],
+    iconAnchor: [23, 50],
+    popupAnchor: [0, -48],
+  });
 }
 
 function buildPopupHtml(pinId: string) {
   const pin = mapStore.visiblePins.find((item) => item.id === pinId);
-  const building = buildings.find((item) => item.id === pin?.buildingId);
   if (!pin) return "";
   const color = CATEGORY_COLORS[pin.category];
-  const urgent = pin.timeLeft.includes("分钟") || pin.timeLeft.includes("马上");
+  const requesterInitial = pin.requesterName.trim().charAt(0) || "?";
 
   return `
-    <div class="task-popup-card" data-task-popup="${pin.id}">
+    <div class="task-popup-card" data-task-popup="${escapeHtml(pin.id)}">
       <div class="task-popup-top">
-        <span class="task-popup-tag" style="background:${color}18;color:${color}">${pin.label}</span>
-        <span class="task-popup-time ${urgent ? "urgent" : ""}">${pin.timeLeft}</span>
+        <span class="task-popup-tag" style="background:${color}18;color:${color}">${escapeHtml(pin.label)}</span>
+        <span class="task-popup-time">剩余 ${escapeHtml(pin.timeLeft)}</span>
       </div>
-      <div class="task-popup-reward" style="color:${color}">${pin.reward}</div>
-      <h4 class="task-popup-title">${pin.title}</h4>
-      <p class="task-popup-desc">${pin.summary}</p>
-      <div class="task-popup-meta">
-        <span class="task-popup-pill">${building?.name ?? "楼宇"} · ${pin.room}</span>
+      <h4 class="task-popup-title">${escapeHtml(pin.title)}</h4>
+      <div class="task-popup-reward">${escapeHtml(pin.reward)}</div>
+      <p class="task-popup-desc">${escapeHtml(pin.summary)}</p>
+      <div class="task-popup-user">
+        <span class="mini-avatar">${escapeHtml(requesterInitial)}</span>
+        <span>${escapeHtml(pin.requesterName)}</span>
+        <strong>信用 ${escapeHtml(String(pin.requesterCreditScore))}</strong>
       </div>
       <div class="task-popup-actions">
-        <button class="task-popup-btn primary" data-open-building="${pin.buildingId}">${pin.action}</button>
-        <button class="task-popup-btn secondary" data-close-popup="${pin.id}">关闭</button>
+        <button class="task-popup-btn secondary" data-detail-task="${escapeHtml(pin.id)}">查看详情</button>
+        <button class="task-popup-btn primary" data-accept-task="${escapeHtml(pin.id)}">${escapeHtml(pin.action)}</button>
       </div>
     </div>
   `;
 }
 
-function setPopupPlacementClass(popupEl: HTMLElement, placement: PopupPlacement) {
-  popupEl.classList.remove(
-    "is-top",
-    "is-top-right",
-    "is-right",
-    "is-bottom-right",
-    "is-bottom",
-    "is-bottom-left",
-    "is-left",
-    "is-top-left",
-  );
-  popupEl.classList.add(`is-${placement}`);
-}
-
-function getPlacementRect(point: L.Point, width: number, height: number, placement: PopupPlacement) {
-  switch (placement) {
-    case "top":
-      return { left: point.x - width / 2, top: point.y - height - POPUP_ANCHOR_GAP };
-    case "top-right":
-      return { left: point.x + POPUP_ANCHOR_GAP, top: point.y - height - POPUP_ANCHOR_GAP };
-    case "right":
-      return { left: point.x + POPUP_ANCHOR_GAP, top: point.y - height / 2 };
-    case "bottom-right":
-      return { left: point.x + POPUP_ANCHOR_GAP, top: point.y + POPUP_ANCHOR_GAP };
-    case "bottom":
-      return { left: point.x - width / 2, top: point.y + POPUP_ANCHOR_GAP };
-    case "bottom-left":
-      return { left: point.x - width - POPUP_ANCHOR_GAP, top: point.y + POPUP_ANCHOR_GAP };
-    case "left":
-      return { left: point.x - width - POPUP_ANCHOR_GAP, top: point.y - height / 2 };
-    case "top-left":
-    default:
-      return { left: point.x - width - POPUP_ANCHOR_GAP, top: point.y - height - POPUP_ANCHOR_GAP };
-  }
-}
-
-function choosePopupPlacement(m: L.Map, layer: L.CircleMarker, popupEl: HTMLElement): PopupPlacement {
-  const point = m.latLngToContainerPoint(layer.getLatLng());
-  const size = m.getSize();
-  const width = popupEl.offsetWidth;
-  const height = popupEl.offsetHeight;
-  const requiredWidth = width + POPUP_ANCHOR_GAP + POPUP_TIP_SIZE + POPUP_VIEWPORT_PADDING;
-  const requiredHeight = height + POPUP_ANCHOR_GAP + POPUP_TIP_SIZE + POPUP_VIEWPORT_PADDING;
-  const nearLeft = point.x < requiredWidth;
-  const nearRight = size.x - point.x < requiredWidth;
-  const nearTop = point.y < requiredHeight;
-  const nearBottom = size.y - point.y < requiredHeight;
-
-  let preferredPlacements: PopupPlacement[];
-
-  if (nearLeft && nearTop) {
-    preferredPlacements = ["bottom-right", "right", "bottom", "top-right", "bottom-left", "top", "left", "top-left"];
-  } else if (nearRight && nearTop) {
-    preferredPlacements = ["bottom-left", "left", "bottom", "top-left", "bottom-right", "top", "right", "top-right"];
-  } else if (nearRight && nearBottom) {
-    preferredPlacements = ["top-left", "left", "top", "bottom-left", "top-right", "bottom", "right", "bottom-right"];
-  } else if (nearLeft && nearBottom) {
-    preferredPlacements = ["top-right", "right", "top", "bottom-right", "top-left", "bottom", "left", "bottom-left"];
-  } else if (nearTop) {
-    preferredPlacements = ["bottom", "bottom-right", "bottom-left", "right", "left", "top", "top-right", "top-left"];
-  } else if (nearBottom) {
-    preferredPlacements = ["top", "top-right", "top-left", "right", "left", "bottom", "bottom-right", "bottom-left"];
-  } else if (nearLeft) {
-    preferredPlacements = ["right", "top-right", "bottom-right", "top", "bottom", "left", "top-left", "bottom-left"];
-  } else if (nearRight) {
-    preferredPlacements = ["left", "top-left", "bottom-left", "top", "bottom", "right", "top-right", "bottom-right"];
-  } else {
-    preferredPlacements = ["top", "top-right", "top-left", "right", "left", "bottom", "bottom-right", "bottom-left"];
-  }
-
-  const fitsPlacement = (placement: PopupPlacement) => {
-    const rect = getPlacementRect(point, width, height, placement);
-    return (
-      rect.left >= POPUP_VIEWPORT_PADDING &&
-      rect.top >= POPUP_VIEWPORT_PADDING &&
-      rect.left + width <= size.x - POPUP_VIEWPORT_PADDING &&
-      rect.top + height <= size.y - POPUP_VIEWPORT_PADDING
-    );
-  };
-
-  const firstFit = preferredPlacements.find(fitsPlacement);
-  if (firstFit) return firstFit;
-
-  return preferredPlacements.reduce((bestPlacement, placement) => {
-    const rect = getPlacementRect(point, width, height, placement);
-    const overflow =
-      Math.max(POPUP_VIEWPORT_PADDING - rect.left, 0) +
-      Math.max(POPUP_VIEWPORT_PADDING - rect.top, 0) +
-      Math.max(rect.left + width - (size.x - POPUP_VIEWPORT_PADDING), 0) +
-      Math.max(rect.top + height - (size.y - POPUP_VIEWPORT_PADDING), 0);
-
-    const bestRect = getPlacementRect(point, width, height, bestPlacement);
-    const bestOverflow =
-      Math.max(POPUP_VIEWPORT_PADDING - bestRect.left, 0) +
-      Math.max(POPUP_VIEWPORT_PADDING - bestRect.top, 0) +
-      Math.max(bestRect.left + width - (size.x - POPUP_VIEWPORT_PADDING), 0) +
-      Math.max(bestRect.top + height - (size.y - POPUP_VIEWPORT_PADDING), 0);
-
-    return overflow < bestOverflow ? placement : bestPlacement;
-  }, preferredPlacements[0]);
-}
-
-function getPopupOffset(placement: PopupPlacement, popupEl: HTMLElement) {
-  const width = popupEl.offsetWidth;
-  const height = popupEl.offsetHeight;
-  const sideOffset = width / 2 + POPUP_ANCHOR_GAP;
-  const verticalOffset = height + POPUP_ANCHOR_GAP;
-
-  switch (placement) {
-    case "top-right":
-      return L.point(sideOffset, -POPUP_ANCHOR_GAP);
-    case "right":
-      return L.point(sideOffset, 0);
-    case "bottom-right":
-      return L.point(sideOffset, verticalOffset);
-    case "bottom-left":
-      return L.point(-sideOffset, verticalOffset);
-    case "left":
-      return L.point(-sideOffset, 0);
-    case "top-left":
-      return L.point(-sideOffset, -POPUP_ANCHOR_GAP);
-    case "bottom":
-      return L.point(0, verticalOffset);
-    case "top":
-    default:
-      return L.point(0, -POPUP_ANCHOR_GAP);
-  }
-}
-
-function syncPopupPlacement(m: L.Map, layer: L.CircleMarker) {
-  const popup = layer.getPopup();
-  const popupEl = popup?.getElement();
-  if (!popup || !popupEl) return;
-
-  const placement = choosePopupPlacement(m, layer, popupEl);
-  popup.options.offset = getPopupOffset(placement, popupEl);
-  setPopupPlacementClass(popupEl, placement);
-  popup.update();
-}
-
-function scheduleClose(layer: L.CircleMarker) {
-  clearHoverTimer();
-  hoverCloseTimer = window.setTimeout(() => {
-    layer.closePopup();
-    mapStore.clearTask();
-  }, 180);
-}
-
-function openAdaptivePopup(m: L.Map, layer: L.CircleMarker, pinId: string) {
-  clearHoverTimer();
-  const popup = layer.getPopup();
-  if (!popup) return;
-  popup.setContent(buildPopupHtml(pinId));
-  popup.options.offset = L.point(0, -POPUP_ANCHOR_GAP);
-  mapStore.showTask(pinId);
-  layer.openPopup();
-  window.requestAnimationFrame(() => syncPopupPlacement(m, layer));
+function openPopup(marker: L.Marker, pinId: string, syncStore = true) {
+  marker.setIcon(buildMarkerIcon(pinId));
+  marker.setPopupContent(buildPopupHtml(pinId));
+  if (syncStore) mapStore.showTask(pinId);
+  marker.openPopup();
 }
 
 function createMarkers(m: L.Map) {
+  bindMapSync(m);
   clearLayers();
 
   for (const pin of mapStore.visiblePins) {
-    const color = CATEGORY_COLORS[pin.category];
-    const latlng = toLatLng(pin.position);
-
-    const pulse = L.circleMarker(latlng, {
-      radius: 18,
-      color,
-      weight: 2,
-      opacity: 0.32,
-      fillOpacity: 0,
-      interactive: false,
-      className: "task-pulse-circle",
+    const marker = L.marker(toLatLng(pin.position), {
+      icon: buildMarkerIcon(pin.id),
+      riseOnHover: true,
+      keyboard: true,
+      title: pin.title,
     }).addTo(m);
 
-    const core = L.circleMarker(latlng, {
-      radius: 7,
-      color: "#ffffff",
-      weight: 2.5,
-      fillColor: color,
-      fillOpacity: 1,
-      bubblingMouseEvents: false,
-      className: "task-core-circle",
-    }).addTo(m);
-
-    core.bindTooltip(pin.shortLabel, {
-      permanent: true,
-      direction: "right",
-      offset: L.point(10, 0),
-      className: "task-summary-tooltip",
-      opacity: 1,
-      interactive: false,
-    });
-
-    core.bindPopup(buildPopupHtml(pin.id), {
+    marker.bindPopup(buildPopupHtml(pin.id), {
       closeButton: false,
       autoPan: false,
       keepInView: false,
-      offset: L.point(18, -18),
+      maxWidth: 320,
       className: "task-popup-shell",
     });
 
-    core.on("mouseover", () => openAdaptivePopup(m, core, pin.id));
-    core.on("click", (e) => {
+    marker.on("click", (e) => {
       L.DomEvent.stopPropagation(e);
-      openAdaptivePopup(m, core, pin.id);
+      openPopup(marker, pin.id);
     });
-    core.on("mouseout", () => scheduleClose(core));
 
-    core.on("popupopen", (event) => {
+    marker.on("mouseover", () => mapStore.setFocus(pin.id));
+    marker.on("mouseout", () => mapStore.setFocus(null));
+    marker.on("popupclose", () => mapStore.clearTask());
+    marker.on("popupopen", (event) => {
       const popupEl = event.popup.getElement();
-      if (!popupEl) return;
+      if (!popupEl || (popupEl as any).__delegated) return;
+      (popupEl as any).__delegated = true;
+      popupEl.addEventListener("click", async (e: Event) => {
+        const target = e.target as HTMLElement;
+        const detailBtn = target.closest("[data-detail-task]") as HTMLElement | null;
+        if (detailBtn) {
+          e.stopPropagation();
+          router.push(`/tasks/${detailBtn.dataset.detailTask ?? pin.id}`);
+          return;
+        }
 
-      syncPopupPlacement(m, core);
-
-      popupEl.addEventListener("mouseenter", clearHoverTimer);
-      popupEl.addEventListener("mouseleave", () => scheduleClose(core));
-
-      popupEl.querySelectorAll<HTMLElement>("[data-open-building]").forEach((btn) => {
-        btn.onclick = () => {
-          mapStore.openBuilding(btn.dataset.openBuilding ?? "");
-          core.closePopup();
-        };
-      });
-
-      popupEl.querySelectorAll<HTMLElement>("[data-close-popup]").forEach((btn) => {
-        btn.onclick = () => {
-          core.closePopup();
+        const acceptBtn = target.closest("[data-accept-task]") as HTMLButtonElement | null;
+        if (!acceptBtn) return;
+        e.stopPropagation();
+        const taskId = acceptBtn.dataset.acceptTask ?? "";
+        if (!authStore.isAuthenticated) {
+          marker.closePopup();
+          router.push("/login");
+          return;
+        }
+        acceptBtn.textContent = "接单中...";
+        acceptBtn.disabled = true;
+        try {
+          await acceptTask(taskId);
+          marker.closePopup();
+          mapStore.removeTask(taskId);
           mapStore.clearTask();
-        };
+          alert("接单成功，可在“我的任务”中查看进度。");
+        } catch (err: any) {
+          const msg = err?.response?.data?.error?.message || "请重试";
+          alert(`接单失败：${msg}`);
+          acceptBtn.textContent = "接单";
+          acceptBtn.disabled = false;
+        }
       });
     });
 
-    m.on("zoomend moveend", () => {
-      if (core.isPopupOpen()) {
-        openAdaptivePopup(m, core, pin.id);
-      }
-    });
-
-    layers.push(pulse, core);
+    markerMap.set(pin.id, marker);
+    layers.push(marker);
   }
 }
 
 function clearLayers() {
   layers.forEach((layer) => layer.remove());
   layers.length = 0;
+  markerMap.clear();
 }
 
 watch(
@@ -316,305 +182,227 @@ watch(
   ([m]) => {
     if (m) createMarkers(m);
   },
-  { immediate: true }
+  { immediate: true },
 );
 
+watch(
+  () => mapStore.focusTaskId,
+  (id) => {
+    for (const [pinId, marker] of markerMap) {
+      const el = marker.getElement();
+      if (el) el.classList.toggle("is-focused", pinId === id);
+    }
+  },
+);
+
+watch(
+  () => mapStore.activeTaskId,
+  (id, prevId) => {
+    if (prevId && prevId !== id) markerMap.get(prevId)?.closePopup();
+    if (!id) return;
+    const marker = markerMap.get(id);
+    if (!marker) return;
+    if (marker.getPopup()?.isOpen()) return;
+    openPopup(marker, id, false);
+  },
+);
+
+onMounted(() => {
+  mapStore.fetchMapData();
+});
+
 onUnmounted(() => {
+  if (boundMap) {
+    boundMap.off("zoom zoomend moveend viewreset resize", refreshMarkerPositions);
+    boundMap = null;
+  }
   clearLayers();
-  clearHoverTimer();
 });
 </script>
 
 <style>
-.task-core-circle {
-  filter: drop-shadow(0 8px 16px rgba(17, 20, 27, 0.22));
-}
-
-.task-pulse-circle {
-  animation: beacon-pulse-ring 2.4s ease-out infinite;
-  transform-origin: center;
-}
-
-@keyframes beacon-pulse-ring {
-  0% { transform: scale(0.88); opacity: 0.28; }
-  70% { transform: scale(1.7); opacity: 0; }
-  100% { transform: scale(1.7); opacity: 0; }
-}
-
-.task-summary-tooltip {
+.task-pin-shell {
   background: transparent;
   border: none;
-  box-shadow: none;
 }
 
-.task-summary-tooltip .leaflet-tooltip-content {
-  margin: 0;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(255, 251, 245, 0.92);
-  border: 1px solid rgba(31, 42, 58, 0.1);
-  box-shadow: 0 8px 16px rgba(31, 34, 48, 0.1);
-  font-family: "Fredoka", "Noto Sans SC", sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: #1f2230;
-  max-width: 58px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.task-pin-pulse {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 36px;
+  height: 36px;
+  border: 2px dashed;
+  border-radius: 50%;
+  opacity: 0;
 }
 
-.task-summary-tooltip::before {
-  display: none;
+.task-pin {
+  position: absolute;
+  left: 5px;
+  top: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 4px solid #fff;
+  border-radius: 50% 50% 50% 8px;
+  box-shadow: 0 12px 26px rgba(31, 36, 48, 0.25);
+  transform: rotate(-45deg);
+}
+
+.task-pin::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  bottom: -13px;
+  width: 17px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(31, 36, 48, 0.2);
+  filter: blur(2px);
+  transform: rotate(45deg);
+}
+
+.task-pin-icon {
+  transform: rotate(45deg);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.task-pin-shell.is-focused .task-pin,
+.task-pin-shell:hover .task-pin {
+  transform: rotate(-45deg) scale(1.12);
+}
+
+.task-pin-shell.is-focused .task-pin-pulse,
+.task-pin-shell:hover .task-pin-pulse {
+  animation: task-pin-pulse 1.4s ease-out infinite;
+}
+
+@keyframes task-pin-pulse {
+  0% { opacity: 0.58; transform: scale(0.76); }
+  100% { opacity: 0; transform: scale(1.9); }
 }
 
 .task-popup-shell .leaflet-popup-content-wrapper {
-  border-radius: 16px;
-  background: #fff;
-  border: 1px solid rgba(31, 42, 58, 0.06);
-  box-shadow: 0 16px 40px rgba(31, 34, 48, 0.12), 0 2px 6px rgba(31, 34, 48, 0.04);
   overflow: hidden;
-  animation: popup-reveal 200ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes popup-reveal {
-  from { opacity: 0; transform: scale(0.94); }
-  to { opacity: 1; transform: scale(1); }
+  border: 1px solid rgba(31, 36, 48, 0.07);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(31, 36, 48, 0.18);
 }
 
 .task-popup-shell .leaflet-popup-content {
   margin: 0;
 }
 
-.task-popup-shell {
-  margin-bottom: 0;
-}
-
-.task-popup-shell,
-.task-popup-shell.leaflet-zoom-animated,
-.leaflet-fade-anim .task-popup-shell,
-.leaflet-zoom-anim .task-popup-shell.leaflet-zoom-animated,
-.task-popup-shell .leaflet-popup-tip,
-.task-popup-shell .leaflet-popup-tip-container {
-  transition: none !important;
-  animation: none !important;
-}
-
-.task-popup-shell .leaflet-popup-tip-container {
-  position: absolute;
-  margin: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
 .task-popup-shell .leaflet-popup-tip {
-  margin: 0;
-  width: 24px;
-  height: 14px;
   background: #fff;
-  box-shadow: none;
-  transform: none;
-  filter: drop-shadow(0 6px 10px rgba(31, 34, 48, 0.08));
-}
-
-.task-popup-shell.is-top .leaflet-popup-tip-container {
-  width: 24px;
-  height: 14px;
-  left: 50%;
-  bottom: -13px;
-  transform: translateX(-50%);
-}
-
-.task-popup-shell.is-top .leaflet-popup-tip {
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
-}
-
-.task-popup-shell.is-bottom .leaflet-popup-tip-container {
-  width: 24px;
-  height: 14px;
-  left: 50%;
-  top: -13px;
-  transform: translateX(-50%);
-}
-
-.task-popup-shell.is-bottom .leaflet-popup-tip {
-  clip-path: polygon(50% 0, 0 100%, 100% 100%);
-}
-
-.task-popup-shell.is-left .leaflet-popup-tip-container {
-  width: 14px;
-  height: 24px;
-  right: -13px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.task-popup-shell.is-left .leaflet-popup-tip {
-  width: 14px;
-  height: 24px;
-  clip-path: polygon(0 0, 100% 50%, 0 100%);
-}
-
-.task-popup-shell.is-right .leaflet-popup-tip-container {
-  width: 14px;
-  height: 24px;
-  left: -13px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.task-popup-shell.is-right .leaflet-popup-tip {
-  width: 14px;
-  height: 24px;
-  clip-path: polygon(100% 0, 0 50%, 100% 100%);
-}
-
-.task-popup-shell.is-bottom-right .leaflet-popup-tip-container,
-.task-popup-shell.is-bottom-left .leaflet-popup-tip-container,
-.task-popup-shell.is-top-right .leaflet-popup-tip-container,
-.task-popup-shell.is-top-left .leaflet-popup-tip-container {
-  width: 18px;
-  height: 18px;
-}
-
-.task-popup-shell.is-bottom-right .leaflet-popup-tip,
-.task-popup-shell.is-bottom-left .leaflet-popup-tip,
-.task-popup-shell.is-top-right .leaflet-popup-tip,
-.task-popup-shell.is-top-left .leaflet-popup-tip {
-  width: 18px;
-  height: 18px;
-}
-
-.task-popup-shell.is-bottom-right .leaflet-popup-tip-container {
-  left: 14px;
-  top: -17px;
-}
-
-.task-popup-shell.is-bottom-right .leaflet-popup-tip {
-  clip-path: polygon(0 0, 100% 100%, 0 100%);
-}
-
-.task-popup-shell.is-bottom-left .leaflet-popup-tip-container {
-  right: 14px;
-  top: -17px;
-}
-
-.task-popup-shell.is-bottom-left .leaflet-popup-tip {
-  clip-path: polygon(100% 0, 100% 100%, 0 100%);
-}
-
-.task-popup-shell.is-top-right .leaflet-popup-tip-container {
-  left: 14px;
-  bottom: -17px;
-}
-
-.task-popup-shell.is-top-right .leaflet-popup-tip {
-  clip-path: polygon(0 0, 100% 0, 0 100%);
-}
-
-.task-popup-shell.is-top-left .leaflet-popup-tip-container {
-  right: 14px;
-  bottom: -17px;
-}
-
-.task-popup-shell.is-top-left .leaflet-popup-tip {
-  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  box-shadow: 0 8px 20px rgba(31, 36, 48, 0.12);
 }
 
 .task-popup-card {
-  width: 292px;
-  padding: 16px;
-  font-family: "Noto Sans SC", sans-serif;
-  color: #1f2230;
+  width: 300px;
+  padding: 18px;
+  color: #202633;
+  font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
 }
 
 .task-popup-top {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .task-popup-tag {
-  padding: 4px 10px;
+  padding: 5px 10px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .task-popup-time {
-  font-size: 11px;
-  color: #748399;
-  font-weight: 700;
-}
-
-.task-popup-time.urgent {
-  color: #d96c53;
-}
-
-.task-popup-reward {
-  font-family: "Fredoka", "Noto Sans SC", sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  margin-bottom: 8px;
+  color: #8b93a2;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .task-popup-title {
+  margin: 0 0 8px;
+  color: #111827;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 900;
   line-height: 1.35;
-  margin-bottom: 8px;
+}
+
+.task-popup-reward {
+  margin-bottom: 10px;
+  color: #f17b2f;
+  font-family: "Fredoka", "Noto Sans SC", sans-serif;
+  font-size: 24px;
+  font-weight: 900;
 }
 
 .task-popup-desc {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #6d7888;
-  margin-bottom: 12px;
+  margin: 0 0 12px;
+  color: #7d8494;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
-.task-popup-meta {
+.task-popup-user {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-bottom: 14px;
+  color: #6d7482;
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.task-popup-pill {
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgba(31, 34, 48, 0.06);
-  font-size: 11px;
-  font-weight: 700;
-  color: #405068;
+.task-popup-user strong {
+  color: #f0ad1e;
+}
+
+.mini-avatar {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #111827;
 }
 
 .task-popup-actions {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .task-popup-btn {
-  flex: 1;
+  height: 42px;
   border: none;
-  border-radius: 14px;
-  padding: 11px 12px;
+  border-radius: 12px;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 800;
-  transition: 160ms ease;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .task-popup-btn.primary {
-  background: #1f2230;
   color: #fff;
+  background: linear-gradient(135deg, #8657ff, #596cff);
+  box-shadow: 0 12px 22px rgba(108, 92, 231, 0.25);
 }
 
 .task-popup-btn.secondary {
-  background: rgba(31, 34, 48, 0.06);
-  color: #1f2230;
+  color: #3a4050;
+  background: #f6f7fa;
+  border: 1px solid #eceef3;
 }
 </style>

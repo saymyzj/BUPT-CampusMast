@@ -1,4 +1,4 @@
-import type { TaskPin } from "@/types/map";
+﻿import type { TaskPin } from "@/types/map";
 
 /**
  * 文件说明：
@@ -26,7 +26,7 @@ export const taskPins: TaskPin[] = [
   {
     id: "task-x10-move",
     buildingId: "xue10",
-    category: "carry",
+    category: "move",
     filter: "all",
     reward: "¥50",
     timeLeft: "剩 6 小时",
@@ -41,7 +41,7 @@ export const taskPins: TaskPin[] = [
   {
     id: "task-youyi-delivery",
     buildingId: "youyizhan",
-    category: "delivery",
+    category: "package",
     filter: "fast",
     reward: "¥8",
     timeLeft: "顺路即走",
@@ -86,7 +86,7 @@ export const taskPins: TaskPin[] = [
   {
     id: "task-j1-laptop",
     buildingId: "j1",
-    category: "delivery",
+    category: "package",
     filter: "all",
     reward: "¥12",
     timeLeft: "剩 40 分钟",
@@ -116,7 +116,7 @@ export const taskPins: TaskPin[] = [
   {
     id: "task-research-part",
     buildingId: "research",
-    category: "carry",
+    category: "move",
     filter: "all",
     reward: "¥18",
     timeLeft: "剩 2 小时",
@@ -144,3 +144,4 @@ export const taskPins: TaskPin[] = [
     action: "顺手带咖啡",
   },
 ];
+

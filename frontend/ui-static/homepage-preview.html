@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CampusMast 首页静态实现</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-width: 1180px;
+      background: #fbfaf7;
+      color: #1f211d;
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+    button, input, select { font: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    .page {
+      width: 1440px;
+      min-height: 802px;
+      margin: 0 auto;
+      padding-bottom: 16px;
+      overflow: hidden;
+      background: #fbfaf7;
+    }
+
+    .topbar {
+      position: relative;
+      height: 86px;
+      display: flex;
+      align-items: center;
+      padding: 0 51px;
+      border-bottom: 1px solid rgba(80, 80, 72, .07);
+      background: rgba(251, 250, 247, .94);
+    }
+
+    .brand {
+      width: 240px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      position: relative;
+      width: 39px;
+      height: 39px;
+      flex: 0 0 auto;
+      border-radius: 9px;
+      background: linear-gradient(145deg, #728766, #536b49);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+    }
+    .logo i {
+      position: absolute;
+      left: 11px;
+      width: 16px;
+      height: 9px;
+      border: 2px solid #fff;
+      border-top: 0;
+      border-radius: 2px;
+      transform: rotate(30deg) skewX(-18deg);
+    }
+    .logo i:nth-child(1) { top: 10px; opacity: .92; }
+    .logo i:nth-child(2) { top: 15px; opacity: .84; }
+    .logo i:nth-child(3) { top: 20px; opacity: .76; }
+
+    .brand-copy {
+      display: grid;
+      line-height: 1.12;
+    }
+    .brand-copy strong {
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .brand-copy span {
+      margin-top: 4px;
+      color: #858781;
+      font-size: 12px;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      margin-left: 62px;
+    }
+    .nav a {
+      position: relative;
+      height: 38px;
+      min-width: 48px;
+      display: grid;
+      place-items: center;
+      padding: 0 8px;
+      border-radius: 11px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .nav .home::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -12px;
+      width: 30px;
+      height: 3px;
+      border-radius: 999px;
+      background: #6f835f;
+      transform: translateX(-50%);
+    }
+    .nav .hall {
+      min-width: 87px;
+      background: #f0efeb;
+    }
+    .nav .msg b,
+    .bell b {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #ef4e5b;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .nav .msg b { right: -8px; top: -6px; }
+
+    .top-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .search {
+      width: 257px;
+      height: 37px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 13px;
+      border: 1px solid #ece9e2;
+      border-radius: 9px;
+      background: #fff;
+      box-shadow: 0 9px 20px rgba(60, 54, 45, .04);
+    }
+    .search input {
+      min-width: 0;
+      flex: 1;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #2c2d29;
+      font-size: 12px;
+    }
+    .search span { color: #8a8d86; font-size: 18px; }
+    .bell {
+      position: relative;
+      width: 27px;
+      height: 31px;
+      color: #333630;
+      font-size: 23px;
+      line-height: 31px;
+    }
+    .bell b { right: -8px; top: -7px; }
+    .user {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      height: 42px;
+    }
+    .avatar {
+      width: 37px;
+      height: 37px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 32%, #f7d2bf 0 10px, transparent 11px),
+        radial-gradient(circle at 50% 78%, #304b32 0 15px, transparent 16px),
+        linear-gradient(135deg, #e5c5a7, #8aa078);
+      color: transparent;
+      overflow: hidden;
+    }
+    .user-copy {
+      display: grid;
+      width: 93px;
+      line-height: 1.12;
+    }
+    .user-copy strong { font-size: 12px; font-weight: 900; }
+    .user-copy span { margin-top: 4px; color: #858781; font-size: 11px; }
+    .chev { font-size: 15px; font-weight: 900; }
+
+    .hero {
+      position: relative;
+      width: 1337px;
+      height: 223px;
+      margin: 0 auto 12px;
+      overflow: hidden;
+      border: 1px solid #e7e4dc;
+      border-radius: 16px;
+      background: #fffdfa;
+      box-shadow: 0 10px 26px rgba(68, 60, 48, .055);
+    }
+    .hero-copy {
+      position: absolute;
+      left: 47px;
+      top: 33px;
+      z-index: 3;
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.42;
+      font-weight: 950;
+    }
+    .hero p {
+      margin: 10px 0 21px;
+      color: #777972;
+      font-size: 14px;
+    }
+    .hero-actions { display: flex; gap: 13px; }
+    .hero-actions button {
+      width: 146px;
+      height: 39px;
+      border: 1px solid #e3dfd6;
+      border-radius: 7px;
+      background: #fff;
+      color: #4d5049;
+      cursor: default;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .hero-actions .primary {
+      border: 0;
+      background: linear-gradient(90deg, #708760, #5f754f);
+      color: #fff;
+    }
+    .hero-actions b { margin-left: 15px; font-size: 16px; }
+    .hero-photo {
+      position: absolute;
+      left: 492px;
+      top: 16px;
+      width: 643px;
+      height: 192px;
+      overflow: hidden;
+      border-radius: 15px;
+      background-image: url("./assets/home-reference.png");
+      background-repeat: no-repeat;
+      background-size: 1440px 802px;
+      background-position: -509px -101px;
+    }
+    .hero-photo::before {
+      content: "";
+      position: absolute;
+      left: -2px;
+      top: 0;
+      bottom: 0;
+      width: 210px;
+      background: linear-gradient(90deg, #fffdfa 0%, rgba(255,253,250,.82) 18%, rgba(255,253,250,0) 100%);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 258px;
+      background: linear-gradient(90deg, rgba(255,253,250,0), #fffdfa 72%);
+      z-index: 2;
+    }
+
+    .content {
+      width: 1337px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 966px 357px;
+      gap: 15px;
+    }
+    .task-panel,
+    .card {
+      border: 1px solid #e8e4dc;
+      border-radius: 13px;
+      background: #fffdfa;
+      box-shadow: 0 10px 26px rgba(68, 60, 48, .05);
+    }
+    .task-panel {
+      position: relative;
+      height: 470px;
+      padding: 14px 17px 0;
+    }
+
+    .filters {
+      height: 38px;
+      display: grid;
+      grid-template-columns: 132px 171px 116px 116px 116px 156px;
+      gap: 14px;
+      align-items: center;
+    }
+    .filters select,
+    .inline-search {
+      height: 37px;
+      border: 1px solid #e3dfd6;
+      border-radius: 7px;
+      background: #fff;
+      color: #3e403b;
+      font-size: 12px;
+    }
+    .filters select { padding: 0 12px; }
+    .inline-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 11px;
+    }
+    .inline-search input {
+      min-width: 0;
+      flex: 1;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font-size: 12px;
+    }
+    .inline-search span { color: #90928c; font-size: 17px; }
+    .toggle {
+      height: 37px;
+      display: flex;
+      gap: 4px;
+      justify-content: flex-end;
+      padding: 4px;
+      border: 1px solid #e3dfd6;
+      border-radius: 7px;
+      background: #fff;
+    }
+    .toggle button {
+      width: 73px;
+      height: 29px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #4d5049;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .toggle .on { background: #6f835f; color: #fff; }
+
+    .tasks {
+      margin-top: 15px;
+      height: 271px;
+      overflow: hidden;
+      border: 1px solid #efebe3;
+      border-radius: 11px 11px 0 0;
+      background: #fff;
+    }
+    .task {
+      height: 90px;
+      display: grid;
+      grid-template-columns: 64px 300px 77px 230px 103px;
+      align-items: center;
+      gap: 15px;
+      padding: 0 15px;
+      border-bottom: 1px solid #eeeae2;
+      background: #fff;
+    }
+    .task:nth-child(3) { border-bottom: 0; }
+    .icon {
+      width: 50px;
+      height: 50px;
+      display: grid;
+      place-items: center;
+      border-radius: 17px;
+      font-size: 23px;
+      font-weight: 900;
+    }
+    .i-green { background: #eef3ea; color: #6e825e; }
+    .i-orange { background: #fbefdd; color: #c97a25; }
+    .i-blue { background: #edf4fb; color: #4d7db9; }
+    .task h3 {
+      margin: 0 0 7px;
+      color: #171915;
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 950;
+    }
+    .line,
+    .place {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #83857e;
+      font-size: 11px;
+    }
+    .place { margin-top: 7px; gap: 10px; }
+    .tag {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 800;
+    }
+    .t-green { background: #e8f0e3; color: #6f835f; }
+    .t-orange { background: #faecd8; color: #c97a25; }
+    .t-blue { background: #e8f1fb; color: #4778b4; }
+    .reward {
+      display: grid;
+      justify-items: center;
+      color: #6f835f;
+      font-size: 18px;
+      font-weight: 950;
+    }
+    .reward small,
+    .owner small,
+    .status small {
+      margin-top: 5px;
+      color: #8b8d86;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .owner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .face {
+      width: 31px;
+      height: 31px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #e7d6c9;
+      color: #6f835f;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .owner div,
+    .status { display: grid; }
+    .owner strong { font-size: 12px; font-weight: 850; }
+    .score {
+      display: inline-block;
+      margin-left: 5px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #fff1dc;
+      color: #d89135;
+      font-size: 10px;
+    }
+    .status span {
+      width: 70px;
+      padding: 7px 0;
+      border-radius: 7px;
+      background: #f1f2ed;
+      color: #6f835f;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .more {
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #efebe3;
+      border-top: 0;
+      border-radius: 0 0 11px 11px;
+      background: #fffdfa;
+      color: #6f835f;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .features {
+      position: absolute;
+      left: 17px;
+      right: 17px;
+      bottom: 19px;
+      height: 64px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      padding: 0 18px;
+      border: 1px solid #eee9df;
+      border-radius: 13px;
+      background: #fffdfa;
+    }
+    .feature {
+      display: grid;
+      grid-template-columns: 45px 1fr;
+      column-gap: 12px;
+      align-items: center;
+    }
+    .round {
+      grid-row: span 2;
+      width: 41px;
+      height: 41px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #6f835f;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .feature strong { align-self: end; font-size: 13px; font-weight: 900; }
+    .feature small {
+      align-self: start;
+      color: #7f817a;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .side {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .card { width: 357px; }
+    .overview-card {
+      height: 269px;
+      padding: 21px 19px;
+    }
+    .card-head {
+      height: 21px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .card-head h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 950;
+    }
+    .card-head a {
+      color: #6f835f;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .overview {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .overview div {
+      width: 151px;
+      height: 94px;
+      display: grid;
+      align-content: center;
+      padding: 12px;
+      border: 1px solid #eee9df;
+      border-radius: 9px;
+      background: #fff;
+    }
+    .overview span { color: #7c7e77; font-size: 12px; }
+    .overview strong {
+      margin-top: 7px;
+      color: #6f835f;
+      font-size: 25px;
+      line-height: 1;
+      font-weight: 950;
+    }
+    .overview .orange { color: #e09033; }
+    .overview small {
+      margin-top: 7px;
+      color: #8b8d86;
+      font-size: 11px;
+    }
+    .hot-card {
+      height: 193px;
+      padding: 18px 19px;
+    }
+    .hot-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .hot-list li {
+      display: grid;
+      grid-template-columns: 21px 1fr 65px 50px;
+      align-items: center;
+      gap: 9px;
+      min-height: 18px;
+    }
+    .hot-list span {
+      width: 19px;
+      height: 19px;
+      display: grid;
+      place-items: center;
+      border-radius: 5px;
+      background: #fff0df;
+      color: #d9913a;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .hot-list strong { font-size: 12px; font-weight: 850; }
+    .hot-list small {
+      color: #8d8f88;
+      text-align: right;
+      font-size: 11px;
+    }
+    .hot-list b {
+      height: 4px;
+      border-radius: 999px;
+      background: #6f835f;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="#">
+        <span class="logo"><i></i><i></i><i></i></span>
+        <span class="brand-copy"><strong>CampusMast</strong><span>北邮校园互助平台</span></span>
+      </a>
+      <nav class="nav">
+        <a class="home" href="#">首页</a>
+        <a class="hall" href="#">任务大厅</a>
+        <a href="#">发布任务</a>
+        <a href="#">地图</a>
+        <a class="msg" href="#">消息<b>3</b></a>
+        <a href="#">我的⌄</a>
+      </nav>
+      <div class="top-actions">
+        <label class="search"><input placeholder="搜索任务、楼宇或关键词" /><span>⌕</span></label>
+        <div class="bell">♧<b>3</b></div>
+        <div class="user">
+          <span class="avatar">邮</span>
+          <span class="user-copy"><strong>你好，邮仔</strong><span>信用分 828</span></span>
+          <span class="chev">⌄</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>你好，邮仔 👋<br />在北邮，互帮互助让校园生活更美好</h1>
+        <p>发布或领取任务，轻松解决生活与学习中的小事</p>
+        <div class="hero-actions">
+          <button class="primary">发布任务 <b>＋</b></button>
+          <button>查看地图 <b>⌖</b></button>
+        </div>
+      </div>
+      <div class="hero-photo" aria-label="北邮校园照片占位"></div>
+    </section>
+
+    <section class="content">
+      <main class="task-panel">
+        <div class="filters">
+          <select><option>全部分类</option></select>
+          <label class="inline-search"><input placeholder="搜索任务关键词" /><span>⌕</span></label>
+          <select><option>赏金范围</option></select>
+          <select><option>全部楼宇</option></select>
+          <select><option>距离排序</option></select>
+          <div class="toggle"><button class="on">☷ 列表</button><button>⌖ 地图</button></div>
+        </div>
+
+        <section class="tasks">
+          <article class="task">
+            <div class="icon i-green">▣</div>
+            <div>
+              <h3>求助代取快递（西土城校区）</h3>
+              <div class="line"><span class="tag t-green">代取快递</span><span>今天 18:00 前</span></div>
+              <div class="place"><span>⌖ 学生公寓3号楼</span><span>⌁ 0.3km</span></div>
+            </div>
+            <div class="reward">¥ 12<small>赏金</small></div>
+            <div class="owner"><span class="face">张</span><div><strong>张同学 <span class="score">信用分 912</span></strong><small>完成 48　好评率 98%</small></div></div>
+            <div class="status"><span>待接单</span><small>2分钟前发布</small></div>
+          </article>
+          <article class="task">
+            <div class="icon i-orange">▤</div>
+            <div>
+              <h3>食堂排队帮取餐（清真餐厅）</h3>
+              <div class="line"><span class="tag t-orange">代取餐</span><span>今天 12:30 前</span></div>
+              <div class="place"><span>⌖ 学三食堂（清真餐厅）</span><span>⌁ 0.5km</span></div>
+            </div>
+            <div class="reward">¥ 8<small>赏金</small></div>
+            <div class="owner"><span class="face">李</span><div><strong>李同学 <span class="score">信用分 786</span></strong><small>完成 32　好评率 97%</small></div></div>
+            <div class="status"><span>待接单</span><small>5分钟前发布</small></div>
+          </article>
+          <article class="task">
+            <div class="icon i-blue">▥</div>
+            <div>
+              <h3>图书馆占座（人文社科阅览室）</h3>
+              <div class="line"><span class="tag t-blue">占座自习</span><span>明天 08:30 前</span></div>
+              <div class="place"><span>⌖ 图书馆南区5层</span><span>⌁ 0.6km</span></div>
+            </div>
+            <div class="reward">¥ 10<small>赏金</small></div>
+            <div class="owner"><span class="face">王</span><div><strong>王同学 <span class="score">信用分 860</span></strong><small>完成 61　好评率 99%</small></div></div>
+            <div class="status"><span>待接单</span><small>9分钟前发布</small></div>
+          </article>
+        </section>
+        <div class="more">加载更多任务⌄</div>
+
+        <section class="features">
+          <div class="feature"><span class="round">盾</span><strong>资金托管</strong><small>资金预付托管，任务完成后确认支付，安全可靠</small></div>
+          <div class="feature"><span class="round">铃</span><strong>实时通知</strong><small>任务进展实时推送，重要消息不再错过</small></div>
+          <div class="feature"><span class="round">星</span><strong>AI 审核</strong><small>智能识别异常行为，保障平台任务真实可信</small></div>
+          <div class="feature"><span class="round">心</span><strong>双向评价</strong><small>互评机制促进诚信互助，共同建设温暖校园</small></div>
+        </section>
+      </main>
+
+      <aside class="side">
+        <section class="card overview-card">
+          <div class="card-head"><h2>今日概览</h2><a href="#">查看全部 ›</a></div>
+          <div class="overview">
+            <div><span>今日新任务</span><strong>18</strong><small>较昨日 +6</small></div>
+            <div><span>待完成任务</span><strong class="orange">6</strong><small>进行中</small></div>
+            <div><span>我的信用分</span><strong>828 🏵</strong><small>信用优秀</small></div>
+            <div><span>完成任务数</span><strong>32</strong><small>累计完成</small></div>
+          </div>
+        </section>
+
+        <section class="card hot-card">
+          <div class="card-head"><h2>热门楼宇</h2><a href="#">查看更多 ›</a></div>
+          <ol class="hot-list">
+            <li><span>1</span><strong>学生公寓3号楼</strong><small>12 个任务</small><b style="width:41px"></b></li>
+            <li><span>2</span><strong>教学楼A座</strong><small>9 个任务</small><b style="width:34px"></b></li>
+            <li><span>3</span><strong>图书馆南区</strong><small>8 个任务</small><b style="width:31px"></b></li>
+            <li><span>4</span><strong>学三食堂</strong><small>7 个任务</small><b style="width:27px"></b></li>
+            <li><span>5</span><strong>信息楼</strong><small>6 个任务</small><b style="width:23px"></b></li>
+          </ol>
+        </section>
+      </aside>
+    </section>
+  </div>
+</body>
+</html>

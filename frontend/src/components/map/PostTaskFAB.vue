@@ -1,6 +1,6 @@
 <template>
   <div class="fab-section">
-    <button class="fab-btn font-display" title="发布任务">
+    <button class="fab-btn font-display" title="发布任务" @click="$router.push('/tasks/new')">
       <span class="fab-plus">+</span>
       <span>发布任务</span>
     </button>

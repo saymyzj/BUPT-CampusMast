@@ -1,10 +1,4 @@
-/**
- * 文件说明：
- * 这是前端统一的 HTTP 客户端封装。
- * A 同学后续应在这里继续补 JWT 注入、401 处理、统一错误提示等逻辑，而不是在
- * 每个页面里直接裸写 axios。
- */
-import axios from "axios";
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:9000";
 
@@ -20,6 +14,65 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
+function subscribeTokenRefresh(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    const refreshToken = localStorage.getItem("campusmast.refreshToken");
+    if (!refreshToken) {
+      return Promise.reject(error);
+    }
+
+    if (!isRefreshing) {
+      isRefreshing = true;
+      try {
+        const { data } = await axios.post(`${baseURL}/api/auth/refresh`, { refreshToken });
+        const newAccessToken = data.data.accessToken;
+        localStorage.setItem("campusmast.accessToken", newAccessToken);
+        onRefreshed(newAccessToken);
+        isRefreshing = false;
+
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        originalRequest._retry = true;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        refreshSubscribers = [];
+        localStorage.removeItem("campusmast.accessToken");
+        localStorage.removeItem("campusmast.refreshToken");
+        localStorage.removeItem("campusmast.currentUser");
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return new Promise((resolve) => {
+      subscribeTokenRefresh((newToken: string) => {
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        originalRequest._retry = true;
+        resolve(apiClient(originalRequest));
+      });
+    });
+  },
+);
 
 export default apiClient;
 

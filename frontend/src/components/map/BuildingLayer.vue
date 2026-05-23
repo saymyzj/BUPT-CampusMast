@@ -33,7 +33,13 @@ function createLayers(m: L.Map) {
 
   for (const b of buildings) {
     const color = BUILDING_COLORS[b.type] ?? "#4970c8";
-    const open = () => mapStore.openBuilding(b.id);
+    const open = () => {
+      if (mapStore.pickerMode) {
+        mapStore.pickPoint(b.center[0], b.center[1], b.name);
+      } else {
+        mapStore.openBuilding(b.id);
+      }
+    };
 
     if (b.polygon?.length) {
       const polygon = L.polygon(b.polygon.map(toLatLng), {

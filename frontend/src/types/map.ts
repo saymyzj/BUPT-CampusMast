@@ -12,7 +12,7 @@ export type BuildingType =
   | "residential"
   | "logistics";
 
-export type CategoryType = "delivery" | "food" | "carry" | "other";
+export type CategoryType = "package" | "food" | "move" | "other";
 export type FilterType = "all" | "fast" | "high";
 export type LatLngTuple = [number, number];
 
@@ -75,15 +75,22 @@ export interface FilterOption {
 }
 
 export const CATEGORY_COLORS: Record<CategoryType, string> = {
-  delivery: "#2553d4",
-  food: "#e4572e",
-  carry: "#d6a74f",
-  other: "#5c715e",
+  package: "#7c4dff",
+  food: "#ff8a34",
+  move: "#32c483",
+  other: "#3f8cff",
 };
 
 export const CATEGORY_LABELS: Record<CategoryType, string> = {
-  delivery: "代取快递",
+  package: "代取快递",
   food: "代买餐食",
-  carry: "搬运协助",
+  move: "搬运重物",
   other: "其他",
+};
+
+export const CATEGORY_ICONS: Record<CategoryType, string> = {
+  package: "📦",
+  food: "🍱",
+  move: "📦",
+  other: "🔧",
 };

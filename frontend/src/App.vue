@@ -1,5 +1,5 @@
 <template>
-  <AppShell v-if="!isMapLayout">
+  <AppShell v-if="usesShellLayout">
     <RouterView />
   </AppShell>
   <RouterView v-else />
@@ -11,5 +11,5 @@ import { RouterView, useRoute } from "vue-router";
 import AppShell from "@/components/AppShell.vue";
 
 const route = useRoute();
-const isMapLayout = computed(() => route.meta.layout === "map");
+const usesShellLayout = computed(() => route.meta.layout !== "map" && route.meta.layout !== "auth");
 </script>

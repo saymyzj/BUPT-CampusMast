@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CampusMast 聊天界面静态预览</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: #202633;
+      background: #f7f8fb;
+      font-family: "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    .chat-page {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      background: #f7f8fb;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 263px;
+      min-width: 263px;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border-right: 1px solid #eef0f5;
+      box-shadow: 10px 0 34px rgba(31, 36, 48, 0.04);
+      z-index: 4;
+    }
+
+    .brand {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 18px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border-radius: 13px;
+      color: #fff;
+      background: #111827;
+      font-weight: 900;
+      box-shadow: 0 10px 24px rgba(17, 24, 39, 0.16);
+    }
+
+    .brand-copy strong {
+      display: block;
+      color: #171b27;
+      font-size: 20px;
+      line-height: 1.1;
+      font-weight: 900;
+    }
+
+    .brand-copy span {
+      display: block;
+      margin-top: 4px;
+      color: #9ca3af;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 18px 14px 8px;
+    }
+
+    .nav-item {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      color: #686f7e;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .nav-item.active {
+      color: #6c5ce7;
+      background: linear-gradient(90deg, rgba(108, 92, 231, 0.14), rgba(108, 92, 231, 0.04));
+      box-shadow: inset 3px 0 0 #6c5ce7;
+    }
+
+    .nav-icon {
+      width: 24px;
+      text-align: center;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .sidebar-section {
+      margin: 18px;
+      padding-top: 18px;
+      border-top: 1px solid #eef0f5;
+    }
+
+    .section-title {
+      margin-bottom: 12px;
+      color: #232937;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .quick-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .quick-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      color: #5c6474;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .quick-dot {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .publish-btn {
+      height: 72px;
+      margin: auto 18px 24px;
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      background: linear-gradient(135deg, #8657ff, #596cff);
+      box-shadow: 0 18px 34px rgba(108, 92, 231, 0.28);
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .workspace {
+      min-width: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 24px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 1px 0 rgba(31, 36, 48, 0.06);
+      z-index: 3;
+    }
+
+    .topbar-left,
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .collapse-btn,
+    .round-btn,
+    .avatar {
+      display: grid;
+      place-items: center;
+      border: none;
+      cursor: pointer;
+    }
+
+    .collapse-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      color: #6d7280;
+      background: transparent;
+      font-size: 22px;
+    }
+
+    .topbar-title {
+      overflow: hidden;
+      color: #202633;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .status-pill,
+    .view-btn {
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #eceef3;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(31, 36, 48, 0.05);
+      color: #3a4050;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #32c483;
+      box-shadow: 0 0 0 4px rgba(50, 196, 131, 0.14);
+    }
+
+    .round-btn,
+    .avatar {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      border: 1px solid #eceef3;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(31, 36, 48, 0.05);
+      color: #202633;
+      font-weight: 900;
+    }
+
+    .avatar {
+      border-radius: 50%;
+      color: #fff;
+      border: none;
+      background: linear-gradient(145deg, #4a4650, #c8b2a6);
+    }
+
+    .badge {
+      position: absolute;
+      top: 6px;
+      right: 7px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff4757;
+    }
+
+    .chat-stage {
+      min-height: 0;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 320px minmax(420px, 1fr) 292px;
+      border-top: 1px solid rgba(31, 36, 48, 0.06);
+      overflow: hidden;
+    }
+
+    .conversation-list,
+    .task-panel {
+      background: #fff;
+    }
+
+    .conversation-list {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #eef0f5;
+    }
+
+    .panel-head {
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 18px;
+      border-bottom: 1px solid #eef0f5;
+    }
+
+    .panel-title {
+      color: #202633;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .panel-count {
+      padding: 3px 8px;
+      border-radius: 999px;
+      color: #6c5ce7;
+      background: #f3f0ff;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .search-box {
+      margin: 12px 14px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border: 1px solid #eceef3;
+      border-radius: 12px;
+      background: #fbfcfe;
+      color: #9aa1ae;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .conversation-scroll {
+      min-height: 0;
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 10px 14px;
+    }
+
+    .conv-item {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 10px;
+      border: none;
+      border-radius: 12px;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .conv-item + .conv-item {
+      margin-top: 6px;
+    }
+
+    .conv-item.active {
+      background: linear-gradient(90deg, rgba(108, 92, 231, 0.13), rgba(108, 92, 231, 0.04));
+      box-shadow: inset 3px 0 0 #6c5ce7;
+    }
+
+    .conv-avatar {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: #fff;
+      background: #111827;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .conv-main {
+      min-width: 0;
+    }
+
+    .conv-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .conv-title {
+      overflow: hidden;
+      color: #202633;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .task-tag {
+      flex-shrink: 0;
+      padding: 2px 6px;
+      border-radius: 999px;
+      color: #ff8a34;
+      background: #fff2e9;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .conv-preview {
+      margin-top: 5px;
+      overflow: hidden;
+      color: #8b93a2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .conv-meta {
+      display: grid;
+      justify-items: end;
+      gap: 6px;
+    }
+
+    .conv-time {
+      color: #a2a8b4;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .unread {
+      min-width: 19px;
+      height: 19px;
+      display: grid;
+      place-items: center;
+      padding: 0 6px;
+      border-radius: 10px;
+      color: #fff;
+      background: #ff4757;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .chat-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background:
+        linear-gradient(rgba(247, 248, 251, 0.94), rgba(247, 248, 251, 0.94)),
+        radial-gradient(circle at top left, rgba(108, 92, 231, 0.14), transparent 36%),
+        radial-gradient(circle at bottom right, rgba(255, 138, 52, 0.12), transparent 32%);
+    }
+
+    .chat-header {
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 22px;
+      background: rgba(255, 255, 255, 0.9);
+      border-bottom: 1px solid #eef0f5;
+    }
+
+    .chat-user {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chat-avatar {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border-radius: 50%;
+      color: #fff;
+      background: linear-gradient(145deg, #6c5ce7, #596cff);
+      font-weight: 900;
+      box-shadow: 0 10px 24px rgba(108, 92, 231, 0.2);
+    }
+
+    .chat-name {
+      overflow: hidden;
+      color: #202633;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .chat-sub {
+      margin-top: 3px;
+      color: #8b93a2;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chat-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #eceef3;
+      border-radius: 12px;
+      background: #fff;
+      color: #555e70;
+      cursor: pointer;
+      font-size: 15px;
+      box-shadow: 0 8px 20px rgba(31, 36, 48, 0.05);
+    }
+
+    .message-scroll {
+      min-height: 0;
+      flex: 1;
+      overflow-y: auto;
+      padding: 22px;
+    }
+
+    .day-divider {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    .day-divider span {
+      padding: 5px 10px;
+      border-radius: 999px;
+      color: #8b93a2;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(236, 238, 243, 0.9);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .msg-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 14px;
+    }
+
+    .msg-row.mine {
+      justify-content: flex-end;
+    }
+
+    .msg-mini {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border-radius: 50%;
+      color: #fff;
+      background: #111827;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .bubble-wrap {
+      max-width: min(520px, 72%);
+    }
+
+    .bubble {
+      padding: 11px 14px;
+      border: 1px solid rgba(31, 36, 48, 0.06);
+      border-radius: 16px 16px 16px 6px;
+      background: #fff;
+      color: #343b4c;
+      box-shadow: 0 8px 22px rgba(31, 36, 48, 0.06);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .msg-row.mine .bubble {
+      border: none;
+      border-radius: 16px 16px 6px 16px;
+      color: #fff;
+      background: linear-gradient(135deg, #8657ff, #596cff);
+      box-shadow: 0 14px 26px rgba(108, 92, 231, 0.22);
+    }
+
+    .bubble-time {
+      margin-top: 5px;
+      padding: 0 4px;
+      color: #9aa1ae;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .msg-row.mine .bubble-time {
+      text-align: right;
+    }
+
+    .system-note {
+      margin: 18px auto;
+      max-width: 520px;
+      padding: 10px 14px;
+      border: 1px solid #ffe1bd;
+      border-radius: 12px;
+      color: #9a5b1f;
+      background: #fff7ed;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+      padding: 14px 18px 18px;
+      background: rgba(255, 255, 255, 0.96);
+      border-top: 1px solid #eef0f5;
+    }
+
+    .attach-btn,
+    .send-btn {
+      border: none;
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .attach-btn {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      color: #6c5ce7;
+      background: #f3f0ff;
+      font-size: 18px;
+    }
+
+    .composer-input {
+      min-height: 42px;
+      max-height: 96px;
+      resize: none;
+      border: 1px solid #eceef3;
+      border-radius: 14px;
+      outline: none;
+      padding: 11px 14px;
+      color: #202633;
+      background: #fbfcfe;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .composer-input:focus {
+      border-color: #7c4dff;
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(124, 77, 255, 0.08);
+    }
+
+    .send-btn {
+      height: 42px;
+      min-width: 86px;
+      border-radius: 13px;
+      color: #fff;
+      background: linear-gradient(135deg, #8657ff, #596cff);
+      box-shadow: 0 12px 22px rgba(108, 92, 231, 0.25);
+      font-size: 14px;
+    }
+
+    .task-panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #eef0f5;
+    }
+
+    .task-content {
+      min-height: 0;
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .task-summary-card {
+      padding: 16px;
+      border: 1px solid #eceef3;
+      border-radius: 12px;
+      background: #fbfcfe;
+    }
+
+    .task-type-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .type-chip {
+      padding: 5px 10px;
+      border-radius: 999px;
+      color: #ff8a34;
+      background: #fff2e9;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .remain {
+      color: #8b93a2;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .task-title {
+      margin: 0 0 10px;
+      color: #111827;
+      font-size: 17px;
+      line-height: 1.35;
+      font-weight: 900;
+    }
+
+    .reward {
+      margin-bottom: 12px;
+      color: #f17b2f;
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .task-desc {
+      margin: 0;
+      color: #747d8f;
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 700;
+    }
+
+    .info-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .info-row {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eef0f5;
+      font-size: 12px;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      color: #9aa1ae;
+      font-weight: 800;
+    }
+
+    .info-value {
+      min-width: 0;
+      color: #343b4c;
+      font-weight: 800;
+    }
+
+    .side-actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .side-btn {
+      height: 40px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .side-btn.primary {
+      color: #fff;
+      background: #111827;
+    }
+
+    .side-btn.secondary {
+      color: #3a4050;
+      background: #f3f4f7;
+    }
+
+    @media (max-width: 1180px) {
+      .chat-stage {
+        grid-template-columns: 300px minmax(360px, 1fr);
+      }
+
+      .task-panel {
+        display: none;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .sidebar {
+        width: 68px;
+        min-width: 68px;
+      }
+
+      .brand-copy,
+      .nav-label,
+      .sidebar-section,
+      .publish-btn {
+        display: none;
+      }
+
+      .brand {
+        justify-content: center;
+        padding: 0;
+      }
+
+      .nav {
+        padding: 14px 10px;
+      }
+
+      .nav-item {
+        justify-content: center;
+        padding: 0;
+      }
+
+      .chat-stage {
+        grid-template-columns: 280px minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 680px) {
+      .chat-page {
+        position: static;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .topbar {
+        height: auto;
+        align-items: stretch;
+        flex-direction: column;
+        padding: 12px;
+      }
+
+      .topbar-actions {
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .chat-stage {
+        min-height: calc(100vh - 118px);
+        grid-template-columns: 1fr;
+      }
+
+      .conversation-list {
+        display: none;
+      }
+
+      .bubble-wrap {
+        max-width: 82%;
+      }
+
+      .composer {
+        grid-template-columns: auto 1fr auto;
+      }
+
+      .composer .icon-btn {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-page">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CM</div>
+        <div class="brand-copy">
+          <strong>CampusMast</strong>
+          <span>校园互助 · 让帮助更简单</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item"><span class="nav-label">地图</span></button>
+        <button class="nav-item"><span class="nav-label">任务大厅</span></button>
+        <button class="nav-item"><span class="nav-label">我的任务</span></button>
+        <button class="nav-item active"><span class="nav-label">任务聊天</span></button>
+        <button class="nav-item"><span class="nav-label">积分钱包</span></button>
+      </nav>
+
+      <section class="sidebar-section">
+        <div class="section-title">聊天概览</div>
+        <div class="quick-list">
+          <div class="quick-row"><span class="quick-dot" style="background:#6c5ce7">3</span><span>进行中会话</span></div>
+          <div class="quick-row"><span class="quick-dot" style="background:#ff4757">5</span><span>未读消息</span></div>
+          <div class="quick-row"><span class="quick-dot" style="background:#32c483">2</span><span>今日已回复</span></div>
+        </div>
+      </section>
+
+      <button class="publish-btn">＋ 发布任务</button>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="collapse-btn">‹</button>
+          <span class="topbar-title">任务聊天</span>
+          <span class="status-pill"><span class="status-dot"></span>实时在线</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="view-btn">查看任务大厅</button>
+          <button class="round-btn">铃<span class="badge"></span></button>
+          <button class="avatar">林</button>
+        </div>
+      </header>
+
+      <section class="chat-stage">
+        <aside class="conversation-list">
+          <div class="panel-head">
+            <span class="panel-title">会话列表</span>
+            <span class="panel-count">3 个任务</span>
+          </div>
+          <div class="search-box">⌕ 搜索任务或联系人</div>
+          <div class="conversation-scroll">
+            <button class="conv-item active">
+              <span class="conv-avatar">周</span>
+              <span class="conv-main">
+                <span class="conv-title-row">
+                  <span class="conv-title">周同学</span>
+                  <span class="task-tag">代买餐食</span>
+                </span>
+                <span class="conv-preview">我到餐厅了，麻烦确认一下备注...</span>
+              </span>
+              <span class="conv-meta">
+                <span class="conv-time">14:26</span>
+                <span class="unread">2</span>
+              </span>
+            </button>
+            <button class="conv-item">
+              <span class="conv-avatar" style="background:#ff8a34">陈</span>
+              <span class="conv-main">
+                <span class="conv-title-row">
+                  <span class="conv-title">陈同学</span>
+                  <span class="task-tag">代取快递</span>
+                </span>
+                <span class="conv-preview">快递架第三排，取件码我发你了</span>
+              </span>
+              <span class="conv-meta">
+                <span class="conv-time">13:41</span>
+                <span class="unread">3</span>
+              </span>
+            </button>
+            <button class="conv-item">
+              <span class="conv-avatar" style="background:#32c483">许</span>
+              <span class="conv-main">
+                <span class="conv-title-row">
+                  <span class="conv-title">许同学</span>
+                  <span class="task-tag">搬运重物</span>
+                </span>
+                <span class="conv-preview">我在宿舍楼下等你，电梯口见</span>
+              </span>
+              <span class="conv-meta">
+                <span class="conv-time">昨天</span>
+              </span>
+            </button>
+          </div>
+        </aside>
+
+        <section class="chat-main">
+          <div class="chat-header">
+            <div class="chat-user">
+              <span class="chat-avatar">周</span>
+              <div>
+                <div class="chat-name">周同学</div>
+                <div class="chat-sub">任务：帮忙带一份晚餐到学十楼下 · 信用 96</div>
+              </div>
+            </div>
+            <div class="chat-actions">
+              <button class="icon-btn">详</button>
+              <button class="icon-btn">电</button>
+              <button class="icon-btn">⋯</button>
+            </div>
+          </div>
+
+          <div class="message-scroll">
+            <div class="day-divider"><span>今天 14:00</span></div>
+            <div class="system-note">任务已被周同学接单，请在聊天中确认具体交付信息。</div>
+
+            <div class="msg-row">
+              <span class="msg-mini">周</span>
+              <div class="bubble-wrap">
+                <div class="bubble">我现在从教学楼过去餐厅，你需要哪家窗口？</div>
+                <div class="bubble-time">14:08</div>
+              </div>
+            </div>
+
+            <div class="msg-row mine">
+              <div class="bubble-wrap">
+                <div class="bubble">麻烦去一层西侧窗口，点一份鸡腿饭，不要香菜。</div>
+                <div class="bubble-time">14:10</div>
+              </div>
+            </div>
+
+            <div class="msg-row">
+              <span class="msg-mini">周</span>
+              <div class="bubble-wrap">
+                <div class="bubble">收到。我到餐厅了，麻烦确认一下饮料要不要带？</div>
+                <div class="bubble-time">14:26</div>
+              </div>
+            </div>
+
+            <div class="msg-row mine">
+              <div class="bubble-wrap">
+                <div class="bubble">不用饮料，到了学十楼下我去取。</div>
+                <div class="bubble-time">14:27</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="composer">
+            <button class="attach-btn">＋</button>
+            <textarea class="composer-input" rows="1" placeholder="输入消息，和对方确认任务细节"></textarea>
+            <button class="icon-btn">表</button>
+            <button class="send-btn">发送</button>
+          </div>
+        </section>
+
+        <aside class="task-panel">
+          <div class="panel-head">
+            <span class="panel-title">任务信息</span>
+            <span class="panel-count">进行中</span>
+          </div>
+          <div class="task-content">
+            <div class="task-summary-card">
+              <div class="task-type-row">
+                <span class="type-chip">代买餐食</span>
+                <span class="remain">剩余 42 分钟</span>
+              </div>
+              <h2 class="task-title">帮忙带一份晚餐到学十楼下</h2>
+              <div class="reward">¥6.00</div>
+              <p class="task-desc">从学生餐厅一层西侧窗口带一份鸡腿饭，送到学十楼下，到了后聊天联系。</p>
+            </div>
+
+            <div class="info-list">
+              <div class="info-row">
+                <span class="info-label">接单者</span>
+                <span class="info-value">周同学 · 信用 96</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">地点</span>
+                <span class="info-value">学十楼下</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">截止时间</span>
+                <span class="info-value">今天 15:10</span>
+              </div>
+            </div>
+
+            <div class="side-actions">
+              <button class="side-btn primary">查看任务详情</button>
+              <button class="side-btn secondary">标记已送达</button>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

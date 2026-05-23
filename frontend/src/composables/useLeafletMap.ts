@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, provide, inject, type Ref, type InjectionKey } from "vue";
+import { markRaw, shallowRef, onMounted, onUnmounted, provide, inject, type Ref, type InjectionKey } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { MAP_CONFIG } from "@/data/mapConfig";
@@ -36,7 +36,7 @@ function expandBoundsForViewport(m: L.Map, bounds: L.LatLngBounds) {
 }
 
 export function provideLeafletMap(containerRef: Ref<HTMLElement | null>) {
-  const map: Ref<L.Map | null> = ref(null);
+  const map: Ref<L.Map | null> = shallowRef(null);
   function toLatLng(point: LatLngTuple): L.LatLng {
     return L.latLng(point[0], point[1]);
   }
@@ -54,11 +54,12 @@ export function provideLeafletMap(containerRef: Ref<HTMLElement | null>) {
 
   onMounted(() => {
     if (!containerRef.value) return;
+    const container = containerRef.value;
 
     const campusBounds = L.latLngBounds(MAP_CONFIG.campusBounds);
     const dragCenterBounds = campusBounds.pad(DRAG_PADDING_RATIO);
 
-    const m = L.map(containerRef.value, {
+    const m = markRaw(L.map(container, {
       minZoom: MAP_CONFIG.minZoom,
       maxZoom: MAP_CONFIG.maxZoom,
       maxBoundsViscosity: 0.45,
@@ -66,7 +67,7 @@ export function provideLeafletMap(containerRef: Ref<HTMLElement | null>) {
       zoomDelta: 0.5,
       attributionControl: true,
       zoomControl: false,
-    });
+    }));
 
     L.tileLayer(MAP_CONFIG.tileUrl, {
       attribution: MAP_CONFIG.tileAttribution,
@@ -84,9 +85,18 @@ export function provideLeafletMap(containerRef: Ref<HTMLElement | null>) {
     L.control.zoom({ position: "bottomright" }).addTo(m);
 
     map.value = m;
+
+    const resizeObserver = new ResizeObserver(() => {
+      m.invalidateSize({ debounceMoveend: true });
+      syncDragBounds();
+    });
+    resizeObserver.observe(container);
+    (m as any).__campusMastResizeObserver = resizeObserver;
   });
 
   onUnmounted(() => {
+    const observer = (map.value as any)?.__campusMastResizeObserver as ResizeObserver | undefined;
+    observer?.disconnect();
     map.value?.remove();
     map.value = null;
   });
