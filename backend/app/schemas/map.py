@@ -14,10 +14,10 @@ class CampusBuildingResponse(BaseModel):
     code: str
     name: str
     campusZone: str | None = None
-    latitude: float
-    longitude: float
-    polygon: list[list[float]] | list[list[list[float]]] | None = None
+    xCoord: float
+    yCoord: float
 
 
 class NearbyTaskResponse(TaskResponse):
     distanceScore: float
+

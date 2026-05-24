@@ -13,7 +13,6 @@ frontend/coverage/
 
 # Python / backend
 backend/.venv/
-backend/.venv*/
 backend/venv/
 backend/.pytest_cache/
 backend/.mypy_cache/
@@ -22,9 +21,6 @@ backend/htmlcov/
 backend/.coverage
 __pycache__/
 *.py[cod]
-backend/*.db
-backend/*.sqlite3
-backend/*.sqlite3-journal
 
 # Environment files
 .env
@@ -37,7 +33,6 @@ backend/.env
 .DS_Store
 .idea/
 .vscode/
-.claude/
 *.swp
 *.swo
 
@@ -46,6 +41,3 @@ backend/.env
 logs/
 tmp/
 temp/
-
-# Local UI assets
-frontend/ui-static/assets/BUPT gate.jpg
