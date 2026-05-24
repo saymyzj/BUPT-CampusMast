@@ -75,10 +75,10 @@ export interface FilterOption {
 }
 
 export const CATEGORY_COLORS: Record<CategoryType, string> = {
-  package: "#4d83c8",
-  food: "#f1892d",
-  move: "#52b478",
-  other: "#8b75d7",
+  package: "#7c4dff",
+  food: "#ff8a34",
+  move: "#32c483",
+  other: "#3f8cff",
 };
 
 export const CATEGORY_LABELS: Record<CategoryType, string> = {

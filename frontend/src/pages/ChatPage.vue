@@ -1,280 +1,273 @@
 <template>
   <div class="chat-page">
-    <section class="chat-shell">
-      <aside class="conversation-panel">
-        <header class="panel-title-block">
-          <h1>消息中心</h1>
-          <p>{{ visibleConversations.length }} 个任务会话</p>
-        </header>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CM</div>
+        <div class="brand-copy">
+          <strong>CampusMast</strong>
+          <span>校园互助 · 让帮助更简单</span>
+        </div>
+      </div>
 
-        <div class="tabs" role="tablist">
-          <button
-            type="button"
-            :class="{ active: activeTab === 'all' }"
-            @click="activeTab = 'all'"
-          >
-            聊天消息
-            <span v-if="chatUnreadCount">{{ formatBadge(chatUnreadCount) }}</span>
+      <nav class="nav">
+        <button
+          v-for="item in navItems"
+          :key="item.id"
+          class="nav-item"
+          :class="{ active: activeNav === item.id }"
+          @click="router.push(item.route)"
+        >
+          <span class="nav-label">{{ item.label }}</span>
+        </button>
+      </nav>
+
+      <section class="sidebar-section">
+        <div class="section-title">聊天概览</div>
+        <div class="quick-list">
+          <div class="quick-row">
+            <span class="quick-dot" style="background:#6c5ce7">{{ visibleConversations.length }}</span>
+            <span>进行中会话</span>
+          </div>
+          <div class="quick-row">
+            <span class="quick-dot" style="background:#ff4757">{{ unreadTotal }}</span>
+            <span>未读消息</span>
+          </div>
+          <div class="quick-row">
+            <span class="quick-dot" style="background:#32c483">{{ repliedTodayCount }}</span>
+            <span>今日已回复</span>
+          </div>
+        </div>
+      </section>
+
+      <button class="publish-btn" @click="router.push('/tasks/new')">+ 发布任务</button>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="collapse-btn" title="返回任务大厅" @click="router.push('/tasks')">‹</button>
+          <span class="topbar-title">任务聊天</span>
+          <span class="status-pill"><span class="status-dot"></span>实时在线</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="view-btn" @click="router.push('/tasks')">查看任务大厅</button>
+          <button class="round-btn" title="消息中心" @click="router.push('/notifications')">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 10.8c0-3.3-2.1-5.8-5.1-6.4V3a.9.9 0 0 0-1.8 0v1.4C8.1 5 6 7.5 6 10.8v3.4l-1.5 2.4h15l-1.5-2.4v-3.4Z" />
+              <path d="M9.7 18.4a2.4 2.4 0 0 0 4.6 0" />
+            </svg>
+            <span v-if="unreadTotal" class="badge"></span>
           </button>
-          <button
-            type="button"
-            :class="{ active: activeTab === 'unread' }"
-            @click="activeTab = 'unread'"
-          >
-            未读提醒
-            <span v-if="chatUnreadCount">{{ formatBadge(chatUnreadCount) }}</span>
+          <button class="avatar" title="个人资料" @click="router.push('/profile')">
+            {{ currentInitial }}
           </button>
         </div>
+      </header>
 
-        <label class="search-field">
-          <AppIcon name="search" />
-          <input v-model.trim="keyword" type="search" placeholder="搜索会话或联系人" />
-        </label>
-
-        <div class="conversation-scroll">
-          <div v-if="loading" class="empty-state">会话加载中...</div>
-          <div v-else-if="error" class="empty-state error">{{ error }}</div>
-          <div v-else-if="filteredConversations.length === 0" class="empty-state">
-            <strong>暂无聊天会话</strong>
-            <span>接单或任务被接取后，会在这里显示真实会话。</span>
+      <section class="chat-stage">
+        <aside class="conversation-list" :class="{ hidden: activeConv }">
+          <div class="panel-head">
+            <span class="panel-title">会话列表</span>
+            <span class="panel-count">{{ visibleConversations.length }} 个任务</span>
           </div>
+          <label class="search-box">
+            <span>⌕</span>
+            <input v-model="keyword" type="search" placeholder="搜索任务或联系人" />
+          </label>
 
-          <template v-else>
+          <div class="conversation-scroll">
+            <div v-if="loading" class="state-box">加载中...</div>
+            <div v-else-if="error" class="state-box state-error">{{ error }}</div>
+            <div v-else-if="filteredConversations.length === 0" class="state-box">
+              <strong>暂无聊天会话</strong>
+              <span>接单后会自动创建任务聊天</span>
+            </div>
+
             <button
               v-for="conversation in filteredConversations"
+              v-else
               :key="conversation.id"
-              type="button"
-              class="conversation-card"
+              class="conv-item"
               :class="{ active: activeConv?.id === conversation.id }"
               @click="openConv(conversation)"
             >
-              <span class="avatar-wrap">
-                <span class="avatar" :style="{ background: avatarGradient(conversation) }">
-                  {{ partnerInitial(conversation) }}
-                </span>
-                <span v-if="conversation.unreadCount > 0" class="online-dot"></span>
+              <span class="conv-avatar" :style="{ background: conversationColor(conversation) }">
+                {{ partnerInitial(conversation) }}
               </span>
-
-              <span class="conversation-main">
-                <span class="conversation-row">
-                  <strong>{{ partnerName(conversation) }}</strong>
-                  <small>{{ lastMessageTime(conversation) }}</small>
+              <span class="conv-main">
+                <span class="conv-title-row">
+                  <span class="conv-title">{{ partnerName(conversation) }}</span>
+                  <span class="task-tag" :style="categoryStyle(conversation)">{{ categoryLabel(conversation) }}</span>
                 </span>
-                <span class="conversation-task">任务：{{ taskTitle(conversation) }}</span>
-                <span class="conversation-preview">{{ conversationPreview(conversation) }}</span>
+                <span class="conv-preview">{{ conversationPreview(conversation) }}</span>
               </span>
-
-              <span v-if="conversation.unreadCount > 0" class="unread-dot">
-                {{ formatBadge(conversation.unreadCount) }}
+              <span class="conv-meta">
+                <span class="conv-time">{{ conversation.latestMessage ? formatShort(conversation.latestMessage.createdAt) : "" }}</span>
+                <span v-if="conversation.unreadCount > 0" class="unread">{{ conversation.unreadCount }}</span>
               </span>
             </button>
-          </template>
-        </div>
+          </div>
+        </aside>
 
-        <footer class="conversation-footer">
-          <AppIcon name="bell" />
-          <span>暂无更多会话</span>
-          <RouterLink to="/tasks">去任务大厅</RouterLink>
-        </footer>
-      </aside>
-
-      <main class="message-panel">
-        <div v-if="!activeConv" class="message-empty">
-          <strong>选择一个会话</strong>
-          <span>在这里和对方确认任务细节、交付时间和地点。</span>
-        </div>
-
-        <template v-else>
-          <header class="message-header">
-            <div class="participant">
-              <span class="large-avatar" :style="{ background: activeAvatarGradient }">
-                {{ activePartnerInitial }}
-              </span>
-              <div class="participant-copy">
-                <div class="participant-line">
-                  <strong>{{ activePartnerName }}</strong>
-                  <span class="presence"><i></i>在线</span>
-                </div>
-                <p>{{ activePartnerMeta }}</p>
-              </div>
-            </div>
-
-            <div class="task-context">
-              <span>{{ activeTaskStatusText }}</span>
-              <strong>{{ activeTask?.title || "任务会话" }}</strong>
-            </div>
-
-            <div class="header-actions">
-              <button type="button" class="task-button" @click="goTaskDetail">查看任务</button>
-              <button type="button" class="icon-button" aria-label="更多操作">
-                <AppIcon name="more" />
-              </button>
-            </div>
-          </header>
-
-          <section ref="messageBodyRef" class="message-scroll">
-            <div class="day-divider"><span>{{ activeDateLabel }}</span></div>
-
-            <div v-if="messageLoading" class="empty-state">消息加载中...</div>
-            <div v-else-if="messageError" class="empty-state error">{{ messageError }}</div>
-            <div v-else-if="messages.length === 0" class="empty-state">
-              <strong>暂无消息</strong>
-              <span>发送第一条消息，和对方确认任务细节。</span>
-            </div>
-
-            <article
-              v-for="message in messages"
-              :key="message.id"
-              class="message-row"
-              :class="{ mine: message.senderId === userId }"
-            >
-              <span v-if="message.senderId !== userId" class="mini-avatar" :style="{ background: activeAvatarGradient }">
-                {{ activePartnerInitial }}
-              </span>
-              <div class="bubble-group">
-                <div class="bubble">{{ message.content }}</div>
-                <time>{{ formatClock(message.createdAt) }}</time>
-              </div>
-              <span v-if="message.senderId === userId" class="mini-avatar mine-avatar">
-                {{ currentInitial }}
-              </span>
-            </article>
-          </section>
-
-          <form class="composer" @submit.prevent="sendMessage">
-            <div class="composer-tools" aria-hidden="true">
-              <AppIcon name="smile" />
-            </div>
-            <textarea
-              v-model="newMessage"
-              rows="1"
-              maxlength="500"
-              placeholder="输入消息..."
-              @keydown.enter.exact.prevent="sendMessage"
-            ></textarea>
-            <button type="submit" :disabled="sending || !newMessage.trim()">
-              {{ sending ? "发送中" : "发送" }}
-            </button>
-          </form>
-        </template>
-      </main>
-
-      <aside class="notification-panel">
-        <header class="notice-head">
-          <h2>最新通知</h2>
-          <button
-            v-if="notificationUnreadCount > 0"
-            type="button"
-            :disabled="markingAll"
-            @click="handleMarkAllNotifications"
-          >
-            {{ markingAll ? "处理中" : "全部已读" }}
-          </button>
-        </header>
-
-        <div class="notice-scroll">
-          <div v-if="notificationLoading" class="empty-state">通知加载中...</div>
-          <div v-else-if="notificationError" class="empty-state error">{{ notificationError }}</div>
-          <div v-else-if="notifications.length === 0" class="empty-state">
-            <strong>暂无通知</strong>
-            <span>新的任务、聊天和系统通知会显示在这里。</span>
+        <section class="chat-main" :class="{ expanded: activeConv }">
+          <div v-if="!activeConv" class="empty-chat">
+            <strong>选择一个任务会话</strong>
+            <span>在这里和对方确认任务细节、交付时间和地点</span>
           </div>
 
           <template v-else>
-            <button
-              v-for="notice in notifications"
-              :key="notice.id"
-              type="button"
-              class="notice-card"
-              :class="{ unread: !notice.isRead }"
-              @click="openNotification(notice)"
-            >
-              <span class="notice-icon" :class="notificationClass(notice.type)">
-                <AppIcon :name="notificationIcon(notice.type)" />
-              </span>
-              <span class="notice-copy">
-                <span class="notice-title-row">
-                  <strong>{{ notice.title }}</strong>
-                  <time>{{ formatNoticeTime(notice.createdAt) }}</time>
-                </span>
-                <span class="notice-body">{{ notice.body }}</span>
-                <span class="notice-action">{{ notice.relatedTaskId ? "查看任务" : "查看详情" }}</span>
-              </span>
-              <i v-if="!notice.isRead" class="notice-dot"></i>
-            </button>
-          </template>
-        </div>
+            <div class="chat-header">
+              <div class="chat-user">
+                <button class="mobile-back" @click="activeConv = null">‹</button>
+                <span class="chat-avatar">{{ activePartnerInitial }}</span>
+                <div class="chat-title-copy">
+                  <div class="chat-name">{{ activePartnerName }}</div>
+                  <div class="chat-sub">{{ activeTaskSubtitle }}</div>
+                </div>
+              </div>
+              <div class="chat-actions">
+                <button class="icon-btn" title="任务详情" @click="goTaskDetail">详</button>
+                <button class="icon-btn" title="刷新消息" @click="refreshActiveConversation">刷</button>
+                <button class="icon-btn" title="更多">···</button>
+              </div>
+            </div>
 
-        <footer class="tip-card">
-          <span class="notice-icon tip">
-            <AppIcon name="bell" />
-          </span>
-          <div>
-            <strong>小贴士</strong>
-            <p>及时查看消息和通知，不错过任务进度和重要信息。</p>
+            <div ref="msgBodyRef" class="message-scroll">
+              <div class="day-divider"><span>{{ activeDateLabel }}</span></div>
+              <div class="system-note">任务聊天已建立，请在聊天中确认具体交付信息。</div>
+
+              <div v-if="msgLoading" class="state-box">加载中...</div>
+              <div v-else-if="messages.length === 0" class="state-box">
+                <strong>暂无消息</strong>
+                <span>发送第一条消息，和对方确认任务细节</span>
+              </div>
+
+              <div
+                v-for="message in messages"
+                :key="message.id"
+                class="msg-row"
+                :class="{ mine: message.senderId === userId }"
+              >
+                <span v-if="message.senderId !== userId" class="msg-mini">{{ activePartnerInitial }}</span>
+                <div class="bubble-wrap">
+                  <div class="bubble">{{ message.content }}</div>
+                  <div class="bubble-time">{{ formatShort(message.createdAt) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <form class="composer" @submit.prevent="sendMsg">
+              <button class="attach-btn" type="button" title="添加附件">+</button>
+              <textarea
+                v-model="newMsg"
+                class="composer-input"
+                rows="1"
+                maxlength="500"
+                placeholder="输入消息，和对方确认任务细节"
+                @keydown.enter.exact.prevent="sendMsg"
+              ></textarea>
+              <button class="icon-btn emoji-btn" type="button" title="表情">表</button>
+              <button class="send-btn" type="submit" :disabled="!newMsg.trim() || sending">
+                {{ sending ? "发送中" : "发送" }}
+              </button>
+            </form>
+          </template>
+        </section>
+
+        <aside class="task-panel">
+          <div class="panel-head">
+            <span class="panel-title">任务信息</span>
+            <span class="panel-count">{{ activeTaskStatusText }}</span>
           </div>
-        </footer>
-      </aside>
-    </section>
+          <div v-if="!activeTask" class="task-empty">
+            <strong>暂无任务信息</strong>
+            <span>选择会话后显示任务摘要</span>
+          </div>
+          <div v-else class="task-content">
+            <div class="task-summary-card">
+              <div class="task-type-row">
+                <span class="type-chip" :style="activeCategoryStyle">{{ activeCategoryLabel }}</span>
+                <span class="remain">{{ activeTimeLeft }}</span>
+              </div>
+              <h2 class="task-title">{{ activeTask.title }}</h2>
+              <div class="reward">{{ formatReward(activeTask.reward) }}</div>
+              <p class="task-desc">{{ activeTask.description }}</p>
+            </div>
+
+            <div class="info-list">
+              <div class="info-row">
+                <span class="info-label">接单者</span>
+                <span class="info-value">{{ activeHelperText }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">地点</span>
+                <span class="info-value">{{ activeTask.locationDetail || "校内地点" }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">截止时间</span>
+                <span class="info-value">{{ formatDeadline(activeTask.deadline) }}</span>
+              </div>
+            </div>
+
+            <div class="side-actions">
+              <button class="side-btn primary" @click="goTaskDetail">查看任务详情</button>
+              <button class="side-btn secondary" @click="router.push('/my-tasks')">进入我的任务</button>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { RouterLink, useRoute, useRouter } from "vue-router";
+import { computed, nextTick, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import {
   createTaskChatMessage,
   listChatConversations,
   listTaskChatMessages,
   markConversationRead,
 } from "@/api/modules/chat";
-import { listNotifications, markAllNotificationsRead, markNotificationRead } from "@/api/modules/notification";
 import { getTaskById } from "@/api/modules/task";
-import AppIcon from "@/components/ui/AppIcon.vue";
 import { useAuthStore } from "@/stores/auth";
-import { useNotificationStore } from "@/stores/notification";
-import { CATEGORY_COLORS } from "@/types/map";
+import { CATEGORY_COLORS, CATEGORY_LABELS } from "@/types/map";
 import { isTaskVisible } from "@/utils/taskVisibility";
-import type {
-  ChatConversation,
-  ChatMessage,
-  Notification,
-  NotificationType,
-  TaskCategory,
-  TaskDetail,
-  UserSummary,
-} from "@/types/api";
-
-type ConversationTab = "all" | "unread";
+import type { ChatConversation, ChatMessage, TaskCategory, TaskDetail, UserSummary } from "@/types/api";
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
-const notificationStore = useNotificationStore();
+const userId = computed(() => authStore.userId ?? "");
 
 const conversations = ref<ChatConversation[]>([]);
 const taskById = ref<Record<string, TaskDetail>>({});
-const messages = ref<ChatMessage[]>([]);
-const notifications = ref<Notification[]>([]);
+const loading = ref(false);
+const error = ref("");
+const keyword = ref("");
 
 const activeConv = ref<ChatConversation | null>(null);
-const activeTab = ref<ConversationTab>("all");
-const keyword = ref("");
-const newMessage = ref("");
-const loading = ref(false);
-const messageLoading = ref(false);
-const notificationLoading = ref(false);
+const messages = ref<ChatMessage[]>([]);
+const msgLoading = ref(false);
+const newMsg = ref("");
 const sending = ref(false);
-const markingAll = ref(false);
-const error = ref("");
-const messageError = ref("");
-const notificationError = ref("");
-const notificationUnreadCount = ref(0);
-const messageBodyRef = ref<HTMLElement | null>(null);
+const msgBodyRef = ref<HTMLElement | null>(null);
+
+const navItems = [
+  { id: "map", label: "地图", route: "/map" },
+  { id: "tasks", label: "任务大厅", route: "/tasks" },
+  { id: "my-tasks", label: "我的任务", route: "/my-tasks" },
+  { id: "chat", label: "任务聊天", route: "/chat" },
+  { id: "wallet", label: "积分钱包", route: "/wallet" },
+];
 
 const hiddenConversationStatuses = new Set(["CANCELLED", "EXPIRED", "CLOSED_BY_ADMIN"]);
-const userId = computed(() => authStore.userId ?? "");
-const currentInitial = computed(() => initialOf(authStore.currentUser?.nickname || "我"));
+
+const activeNav = computed(() => {
+  const path = route.path;
+  const matched = navItems.find((item) => path === item.route || (item.route !== "/tasks" && path.startsWith(item.route)));
+  return matched?.id ?? "chat";
+});
 
 const visibleConversations = computed(() =>
   conversations.value.filter((conversation) => {
@@ -286,15 +279,15 @@ const visibleConversations = computed(() =>
 
 const filteredConversations = computed(() => {
   const q = keyword.value.trim().toLowerCase();
+  if (!q) return visibleConversations.value;
   return visibleConversations.value.filter((conversation) => {
-    if (activeTab.value === "unread" && conversation.unreadCount <= 0) return false;
-    if (!q) return true;
     const task = taskById.value[conversation.taskId];
     return [
       partnerName(conversation),
       task?.title,
       task?.description,
       task?.locationDetail,
+      categoryLabel(conversation),
       conversation.latestMessage?.content,
     ]
       .filter(Boolean)
@@ -302,45 +295,75 @@ const filteredConversations = computed(() => {
   });
 });
 
-const chatUnreadCount = computed(() =>
+const unreadTotal = computed(() =>
   visibleConversations.value.reduce((sum, conversation) => sum + conversation.unreadCount, 0),
 );
 
+const repliedTodayCount = computed(() => {
+  const today = new Date().toDateString();
+  return visibleConversations.value.filter((conversation) => {
+    const latest = conversation.latestMessage;
+    return latest?.senderId === userId.value && new Date(latest.createdAt).toDateString() === today;
+  }).length;
+});
+
+const currentInitial = computed(() => initialOf(authStore.currentUser?.nickname));
 const activeTask = computed(() => (activeConv.value ? taskById.value[activeConv.value.taskId] ?? null : null));
 const activePartner = computed(() => (activeTask.value ? getPartner(activeTask.value) : null));
-const activePartnerName = computed(() => activePartner.value?.nickname || "任务会话");
+const activePartnerName = computed(() => activePartner.value?.nickname ?? "任务聊天");
 const activePartnerInitial = computed(() => initialOf(activePartnerName.value));
-const activePartnerMeta = computed(() => {
-  const credit = activePartner.value?.overallCreditScore;
-  return credit ? `信用分 ${credit} · 好评率待统计` : "任务参与方";
+const activeCategoryLabel = computed(() => (activeTask.value ? categoryName(activeTask.value.category) : "任务"));
+const activeCategoryColor = computed(() => (activeTask.value ? categoryColor(activeTask.value.category) : "#6c5ce7"));
+const activeCategoryStyle = computed(() => ({
+  color: activeCategoryColor.value,
+  background: `${activeCategoryColor.value}18`,
+}));
+const activeTaskSubtitle = computed(() => {
+  if (!activeTask.value) return "任务聊天";
+  const credit = activePartner.value ? ` · 信用 ${activePartner.value.overallCreditScore}` : "";
+  return `任务：${activeTask.value.title}${credit}`;
 });
-const activeAvatarGradient = computed(() => avatarGradient(activeConv.value));
+const activeTimeLeft = computed(() => (activeTask.value ? `剩余 ${computeTimeLeft(activeTask.value.deadline)}` : ""));
+const activeHelperText = computed(() => {
+  const helper = activeTask.value?.helper;
+  if (!helper) return "暂未接单";
+  return `${helper.nickname} · 信用 ${helper.overallCreditScore}`;
+});
 const activeTaskStatusText = computed(() => {
-  if (!activeTask.value) return "进行中";
-  return taskStatusText(activeTask.value.status);
+  if (!activeTask.value) return "未选择";
+  const statusMap: Record<string, string> = {
+    PENDING: "待接单",
+    IN_PROGRESS: "进行中",
+    SUBMITTED: "待确认",
+    COMPLETED: "已完成",
+  };
+  return statusMap[activeTask.value.status] ?? "进行中";
 });
 const activeDateLabel = computed(() => {
   const first = messages.value[0]?.createdAt;
-  return first ? formatDayLabel(first) : "今天";
+  return first ? formatDateLabel(first) : "今天";
 });
-
-watch(chatUnreadCount, (count) => notificationStore.setChatUnreadCount(count), { immediate: true });
-watch(notificationUnreadCount, (count) => notificationStore.setNotificationUnreadCount(count), { immediate: true });
 
 function initialOf(value?: string | null) {
   return value?.trim().charAt(0) || "?";
 }
 
-function formatBadge(count: number) {
-  return count > 99 ? "99+" : String(count);
-}
-
-function taskTitle(conversation: ChatConversation) {
-  return taskById.value[conversation.taskId]?.title || "任务会话";
+function categoryName(category?: TaskCategory) {
+  return category ? CATEGORY_LABELS[category] ?? "其他" : "任务";
 }
 
 function categoryColor(category?: TaskCategory) {
-  return category ? CATEGORY_COLORS[category] ?? "#6f835f" : "#6f835f";
+  return category ? CATEGORY_COLORS[category] ?? "#6c5ce7" : "#6c5ce7";
+}
+
+function categoryStyle(conversation: ChatConversation) {
+  const task = taskById.value[conversation.taskId];
+  const color = categoryColor(task?.category);
+  return { color, background: `${color}18` };
+}
+
+function categoryLabel(conversation: ChatConversation) {
+  return categoryName(taskById.value[conversation.taskId]?.category);
 }
 
 function getPartner(task: TaskDetail): UserSummary | null {
@@ -350,79 +373,54 @@ function getPartner(task: TaskDetail): UserSummary | null {
 
 function partnerName(conversation: ChatConversation) {
   const task = taskById.value[conversation.taskId];
-  if (!task) return "任务会话";
-  return getPartner(task)?.nickname || "等待接单";
+  if (!task) return "任务聊天";
+  return getPartner(task)?.nickname ?? "等待接单";
 }
 
 function partnerInitial(conversation: ChatConversation) {
   return initialOf(partnerName(conversation));
 }
 
+function conversationColor(conversation: ChatConversation) {
+  const task = taskById.value[conversation.taskId];
+  return categoryColor(task?.category);
+}
+
 function conversationPreview(conversation: ChatConversation) {
-  return conversation.latestMessage?.content || taskById.value[conversation.taskId]?.description || "暂无消息";
+  return conversation.latestMessage?.content?.slice(0, 34) || taskById.value[conversation.taskId]?.title || "暂无消息";
 }
 
-function avatarGradient(conversation: ChatConversation | null) {
-  const task = conversation ? taskById.value[conversation.taskId] : activeTask.value;
-  const base = categoryColor(task?.category);
-  return `linear-gradient(135deg, ${base}, #d8c4a5)`;
-}
-
-function lastMessageTime(conversation: ChatConversation) {
-  return conversation.latestMessage ? formatNoticeTime(conversation.latestMessage.createdAt) : "";
-}
-
-function formatClock(iso: string) {
+function formatShort(iso: string) {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function formatNoticeTime(iso: string) {
+function formatDateLabel(iso: string) {
   const d = new Date(iso);
   const now = new Date();
-  if (d.toDateString() === now.toDateString()) return formatClock(iso);
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return "昨天";
-  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+  if (d.toDateString() === now.toDateString()) return `今天 ${formatShort(iso)}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${formatShort(iso)}`;
 }
 
-function formatDayLabel(iso: string) {
+function formatDeadline(iso: string) {
   const d = new Date(iso);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString()) return `今天 ${formatClock(iso)}`;
-  return `${d.getMonth() + 1}月${d.getDate()}日 ${formatClock(iso)}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function taskStatusText(status?: string) {
-  const statusMap: Record<string, string> = {
-    PENDING: "待接单",
-    IN_PROGRESS: "进行中",
-    PENDING_REVIEW: "待验收",
-    COMPLETED: "已完成",
-    DISPUTED: "争议中",
-  };
-  return status ? statusMap[status] ?? "进行中" : "进行中";
+function formatReward(value: string) {
+  const amount = Number.parseFloat(value);
+  return Number.isFinite(amount) ? `¥${amount.toFixed(2)}` : value;
 }
 
-function notificationIcon(type: NotificationType) {
-  const iconMap: Partial<Record<NotificationType, string>> = {
-    TASK_ACCEPTED: "check-circle",
-    TASK_SUBMITTED: "upload",
-    CHAT_MESSAGE: "message",
-    SYSTEM_NOTICE: "shield",
-    TASK_CONFIRMED: "star",
-    MODERATION_REVIEW: "shield",
-  };
-  return iconMap[type] || "bell";
-}
-
-function notificationClass(type: NotificationType) {
-  if (type === "TASK_ACCEPTED" || type === "TASK_CONFIRMED") return "green";
-  if (type === "TASK_SUBMITTED" || type === "CHAT_MESSAGE") return "blue";
-  if (type === "TASK_REJECTED" || type === "TASK_CANCELLED" || type === "TASK_DISPUTED") return "orange";
-  if (type === "MODERATION_REVIEW") return "purple";
-  return "green";
+function computeTimeLeft(deadline: string) {
+  const diff = new Date(deadline).getTime() - Date.now();
+  if (diff <= 0) return "已截止";
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  if (hours >= 24) return formatDeadline(deadline);
+  if (hours > 0) return `${hours} 小时`;
+  if (minutes > 0) return `${minutes} 分钟`;
+  return "马上截止";
 }
 
 async function ensureTaskDetail(taskId: string) {
@@ -437,10 +435,10 @@ async function loadConversations() {
   error.value = "";
   try {
     const all = await listChatConversations();
-    const notClosed = all.filter((conversation) => !conversation.taskStatus || !hiddenConversationStatuses.has(conversation.taskStatus));
-    conversations.value = notClosed;
+    const visibleByStatus = all.filter((conversation) => !conversation.taskStatus || !hiddenConversationStatuses.has(conversation.taskStatus));
+    conversations.value = visibleByStatus;
 
-    const taskIds = Array.from(new Set(notClosed.map((conversation) => conversation.taskId)));
+    const taskIds = Array.from(new Set(visibleByStatus.map((conversation) => conversation.taskId)));
     const results = await Promise.allSettled(taskIds.map((taskId) => getTaskById(taskId)));
     const nextTasks: Record<string, TaskDetail> = {};
     results.forEach((result) => {
@@ -449,129 +447,81 @@ async function loadConversations() {
       }
     });
     taskById.value = { ...taskById.value, ...nextTasks };
-    const visibleTaskIds = new Set(Object.keys(nextTasks));
-    conversations.value = notClosed.filter((conversation) => visibleTaskIds.has(conversation.taskId));
-
-    await openInitialConversation();
+    conversations.value = visibleByStatus.filter((conversation) => {
+      const task = nextTasks[conversation.taskId];
+      return task ? isTaskVisible(task) : true;
+    });
   } catch {
-    error.value = "会话加载失败";
+    error.value = "加载会话失败";
   } finally {
     loading.value = false;
-  }
-}
-
-async function openInitialConversation() {
-  const queryTaskId = typeof route.query.taskId === "string" ? route.query.taskId : "";
-  const target =
-    visibleConversations.value.find((conversation) => queryTaskId && conversation.taskId === queryTaskId) ||
-    visibleConversations.value[0];
-  if (target && activeConv.value?.id !== target.id) {
-    await openConv(target);
   }
 }
 
 async function openConv(conversation: ChatConversation) {
   activeConv.value = conversation;
   messages.value = [];
-  messageError.value = "";
-  messageLoading.value = true;
+  msgLoading.value = true;
   try {
-    const [, result] = await Promise.all([
+    const [_, messageResult] = await Promise.all([
       ensureTaskDetail(conversation.taskId),
-      listTaskChatMessages(conversation.taskId, { page: 1, limit: 80 }),
+      listTaskChatMessages(conversation.taskId, { page: 1, limit: 50 }),
     ]);
-    messages.value = result.data;
+    messages.value = messageResult.data.slice().reverse();
     const lastMessageId = messages.value[messages.value.length - 1]?.id;
-    if (lastMessageId && conversation.unreadCount > 0) {
-      await markConversationRead(conversation.id, { lastReadMessageId: lastMessageId });
-    }
+    if (lastMessageId) await markConversationRead(conversation.id, { lastReadMessageId: lastMessageId });
     conversation.unreadCount = 0;
   } catch {
-    messageError.value = "消息加载失败";
+    error.value = "加载消息失败";
   } finally {
-    messageLoading.value = false;
+    msgLoading.value = false;
   }
   await nextTick();
-  scrollToBottom();
+  scrollBottom();
 }
 
-async function loadNotifications() {
-  notificationLoading.value = true;
-  notificationError.value = "";
-  try {
-    const result = await listNotifications({ page: 1, limit: 6 });
-    notifications.value = result.data;
-    notificationUnreadCount.value = result.meta.unreadCount ?? result.data.filter((notice) => !notice.isRead).length;
-  } catch {
-    notificationError.value = "通知加载失败";
-  } finally {
-    notificationLoading.value = false;
-  }
+async function refreshActiveConversation() {
+  if (activeConv.value) await openConv(activeConv.value);
 }
 
-async function sendMessage() {
-  if (!activeConv.value || !newMessage.value.trim() || sending.value) return;
-  const content = newMessage.value.trim();
+function scrollBottom() {
+  const el = msgBodyRef.value;
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+async function sendMsg() {
+  if (!newMsg.value.trim() || !activeConv.value || sending.value) return;
+  const content = newMsg.value.trim();
   sending.value = true;
   try {
-    const message = await createTaskChatMessage(activeConv.value.taskId, { content });
-    messages.value.push(message);
-    activeConv.value.latestMessage = message;
-    newMessage.value = "";
+    const msg = await createTaskChatMessage(activeConv.value.taskId, { content });
+    messages.value.push(msg);
+    activeConv.value.latestMessage = msg;
+    newMsg.value = "";
     await nextTick();
-    scrollToBottom();
+    scrollBottom();
   } finally {
     sending.value = false;
   }
 }
 
-function scrollToBottom() {
-  const body = messageBodyRef.value;
-  if (body) body.scrollTop = body.scrollHeight;
-}
-
-async function handleMarkAllNotifications() {
-  markingAll.value = true;
-  try {
-    await markAllNotificationsRead();
-    notifications.value.forEach((notice) => {
-      notice.isRead = true;
-    });
-    notificationUnreadCount.value = 0;
-  } finally {
-    markingAll.value = false;
-  }
-}
-
-async function openNotification(notice: Notification) {
-  if (!notice.isRead) {
-    try {
-      await markNotificationRead(notice.id);
-      notice.isRead = true;
-      notificationUnreadCount.value = Math.max(0, notificationUnreadCount.value - 1);
-    } catch {
-      // Ignore read-sync failure; navigation should still work.
-    }
-  }
-  if (notice.relatedTaskId) await router.push(`/tasks/${notice.relatedTaskId}`);
-}
-
 function goTaskDetail() {
-  if (activeConv.value) router.push(`/tasks/${activeConv.value.taskId}`);
+  if (!activeConv.value) return;
+  router.push(`/tasks/${activeConv.value.taskId}`);
 }
 
-onMounted(async () => {
-  await Promise.all([loadConversations(), loadNotifications()]);
-});
+onMounted(loadConversations);
 </script>
 
 <style scoped>
 .chat-page {
-  min-height: calc(100vh - 62px);
-  padding: 18px 32px 26px;
-  background: #fbfaf7;
-  color: #22241f;
-  font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  color: #202633;
+  background: #f7f8fb;
+  font-family: "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
 }
 
 button,
@@ -580,431 +530,571 @@ textarea {
   font: inherit;
 }
 
-button {
-  cursor: pointer;
-}
-
-.chat-shell {
-  width: min(1440px, 100%);
-  height: calc(100vh - 106px);
-  min-height: 620px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 370px minmax(520px, 1fr) 340px;
-  gap: 14px;
-}
-
-.conversation-panel,
-.message-panel,
-.notification-panel {
-  min-width: 0;
-  min-height: 0;
+.sidebar {
+  width: 263px;
+  min-width: 263px;
   display: flex;
   flex-direction: column;
-  border: 1px solid #ece9e2;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 14px 36px rgba(55, 49, 40, 0.06);
-  overflow: hidden;
+  background: #fff;
+  border-right: 1px solid #eef0f5;
+  box-shadow: 10px 0 34px rgba(31, 36, 48, 0.04);
+  z-index: 4;
 }
 
-.panel-title-block {
-  padding: 24px 22px 12px;
+.brand {
+  height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
 }
 
-.panel-title-block h1,
-.notice-head h2 {
-  margin: 0;
-  color: #151713;
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 13px;
+  color: #fff;
+  background: #111827;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.16);
+}
+
+.brand-copy strong {
+  display: block;
+  color: #171b27;
   font-size: 20px;
+  line-height: 1.1;
   font-weight: 900;
 }
 
-.panel-title-block p {
-  margin: 6px 0 0;
-  color: #85877f;
+.brand-copy span {
+  display: block;
+  margin-top: 4px;
+  color: #9ca3af;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 14px 8px;
+}
+
+.nav-item {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #686f7e;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  color: #6c5ce7;
+  background: linear-gradient(90deg, rgba(108, 92, 231, 0.14), rgba(108, 92, 231, 0.04));
+}
+
+.nav-item.active {
+  box-shadow: inset 3px 0 0 #6c5ce7;
+}
+
+.sidebar-section {
+  margin: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #eef0f5;
+}
+
+.section-title {
+  margin-bottom: 12px;
+  color: #232937;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.quick-list {
+  display: grid;
+  gap: 10px;
+}
+
+.quick-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #5c6474;
   font-size: 12px;
   font-weight: 700;
 }
 
-.tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin: 8px 20px 14px;
-  padding: 4px;
-  border: 1px solid #ece9e2;
-  border-radius: 7px;
-  background: #f4f3ef;
-}
-
-.tabs button {
-  position: relative;
-  min-width: 0;
-  height: 36px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #777a72;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.tabs button.active {
-  color: #60754e;
-  background: #fff;
-  box-shadow: 0 5px 14px rgba(56, 50, 40, 0.06);
-}
-
-.tabs span {
-  position: absolute;
-  top: -6px;
-  right: 14px;
-  min-width: 17px;
-  height: 17px;
+.quick-dot {
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
-  padding: 0 5px;
-  border-radius: 999px;
+  flex-shrink: 0;
+  border-radius: 8px;
   color: #fff;
-  background: #ef4e5b;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
 }
 
-.search-field {
-  height: 38px;
+.publish-btn {
+  height: 72px;
+  margin: auto 18px 24px;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #8657ff, #596cff);
+  box-shadow: 0 18px 34px rgba(108, 92, 231, 0.28);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.workspace {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 72px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin: 0 20px 12px;
-  padding: 0 13px;
-  border: 1px solid #ece9e2;
-  border-radius: 7px;
-  background: #fff;
-  color: #9da098;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 0 rgba(31, 36, 48, 0.06);
+  z-index: 3;
 }
 
-.search-field input {
+.topbar-left,
+.topbar-actions {
   min-width: 0;
-  flex: 1;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #2a2b27;
-  font-size: 13px;
-}
-
-.conversation-scroll,
-.notice-scroll,
-.message-scroll {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.conversation-scroll {
-  padding: 0 18px 14px;
-}
-
-.conversation-card {
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 45px minmax(0, 1fr);
-  gap: 12px;
+  display: flex;
   align-items: center;
-  padding: 12px 11px;
-  border: 0;
-  border-bottom: 1px solid #efede7;
-  border-radius: 7px;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  transition: background 0.18s ease, box-shadow 0.18s ease;
+  gap: 12px;
 }
 
-.conversation-card:hover,
-.conversation-card.active {
-  background: #f4f5ee;
-  box-shadow: inset 3px 0 0 #6f835f;
+.topbar-left {
+  flex: 1;
 }
 
-.avatar-wrap {
-  position: relative;
-  width: 45px;
-  height: 45px;
-}
-
-.avatar,
-.large-avatar,
-.mini-avatar {
+.collapse-btn {
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  color: #fff;
-  font-weight: 900;
+  border: none;
+  border-radius: 10px;
+  color: #6d7280;
+  background: transparent;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+.topbar-title {
   overflow: hidden;
+  color: #202633;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.status-pill,
+.view-btn {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #eceef3;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(31, 36, 48, 0.05);
+  color: #3a4050;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.view-btn,
+.round-btn,
+.avatar {
+  cursor: pointer;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #32c483;
+  box-shadow: 0 0 0 4px rgba(50, 196, 131, 0.14);
+}
+
+.round-btn,
+.avatar {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #eceef3;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(31, 36, 48, 0.05);
+  color: #202633;
+  font-weight: 900;
+}
+
+.round-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .avatar {
-  width: 45px;
-  height: 45px;
-  font-size: 15px;
-}
-
-.online-dot {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 9px;
-  height: 9px;
-  border: 2px solid #fff;
+  border: none;
   border-radius: 50%;
-  background: #58b45f;
+  color: #fff;
+  background: linear-gradient(145deg, #4a4650, #c8b2a6);
 }
 
-.conversation-main {
-  min-width: 0;
+.badge {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4757;
+}
+
+.chat-stage {
+  min-height: 0;
+  flex: 1;
   display: grid;
-  gap: 5px;
+  grid-template-columns: 320px minmax(420px, 1fr) 292px;
+  border-top: 1px solid rgba(31, 36, 48, 0.06);
+  overflow: hidden;
 }
 
-.conversation-row,
-.notice-title-row,
-.participant-line {
+.conversation-list,
+.task-panel {
+  background: #fff;
+}
+
+.conversation-list {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #eef0f5;
+}
+
+.panel-head {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid #eef0f5;
+}
+
+.panel-title {
+  color: #202633;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.panel-count {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #6c5ce7;
+  background: #f3f0ff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.search-box {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 14px;
+  padding: 0 12px;
+  border: 1px solid #eceef3;
+  border-radius: 12px;
+  background: #fbfcfe;
+  color: #9aa1ae;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.search-box input {
+  min-width: 0;
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #202633;
+}
+
+.conversation-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 14px;
+}
+
+.conv-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.conv-item + .conv-item {
+  margin-top: 6px;
+}
+
+.conv-item:hover,
+.conv-item.active {
+  background: linear-gradient(90deg, rgba(108, 92, 231, 0.13), rgba(108, 92, 231, 0.04));
+}
+
+.conv-item.active {
+  box-shadow: inset 3px 0 0 #6c5ce7;
+}
+
+.conv-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.conv-main {
+  min-width: 0;
+}
+
+.conv-title-row {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.conversation-row strong,
-.conversation-task,
-.conversation-preview,
-.notice-title-row strong,
-.notice-body,
-.task-context strong,
-.participant-copy p,
-.participant-line strong {
-  min-width: 0;
+.conv-title,
+.conv-preview {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.conversation-row strong {
-  flex: 1;
-  color: #23241f;
-  font-size: 14px;
+.conv-title {
+  color: #202633;
+  font-size: 13px;
   font-weight: 900;
 }
 
-.conversation-row small {
-  flex: 0 0 auto;
-  color: #aaa79f;
-  font-size: 12px;
-}
-
-.conversation-task,
-.conversation-preview {
-  display: block;
-  color: #85877f;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.conversation-preview {
-  color: #73766f;
-}
-
-.unread-dot {
-  position: absolute;
-  right: 10px;
-  bottom: 16px;
-  min-width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  padding: 0 5px;
+.task-tag {
+  flex-shrink: 0;
+  padding: 2px 6px;
   border-radius: 999px;
-  background: #ef4e5b;
-  color: #fff;
   font-size: 10px;
   font-weight: 900;
 }
 
-.conversation-footer {
-  margin: 10px 20px 20px;
-  min-height: 92px;
+.conv-preview {
+  display: block;
+  margin-top: 5px;
+  color: #8b93a2;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.conv-meta {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.conv-time {
+  color: #a2a8b4;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.unread {
+  min-width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 10px;
+  color: #fff;
+  background: #ff4757;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.chat-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(rgba(247, 248, 251, 0.94), rgba(247, 248, 251, 0.94)),
+    radial-gradient(circle at top left, rgba(108, 92, 231, 0.14), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(255, 138, 52, 0.12), transparent 32%);
+}
+
+.empty-chat,
+.state-box,
+.task-empty {
   display: grid;
   place-items: center;
   align-content: center;
   gap: 8px;
-  border: 1px dashed #dedbd3;
-  border-radius: 7px;
-  color: #8b8d86;
-  font-size: 13px;
-}
-
-.conversation-footer .app-icon {
-  color: #a3a69f;
-}
-
-.conversation-footer a {
-  color: #617650;
-  text-decoration: none;
-  font-weight: 800;
-}
-
-.message-panel {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.message-empty,
-.empty-state {
-  min-height: 150px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  padding: 24px;
-  color: #8a8d86;
+  min-height: 180px;
+  padding: 28px;
+  color: #8b93a2;
   text-align: center;
   font-size: 13px;
-  line-height: 1.5;
+  font-weight: 700;
 }
 
-.message-empty {
+.empty-chat {
   flex: 1;
 }
 
-.empty-state strong,
-.message-empty strong {
-  color: #242620;
+.state-box strong,
+.empty-chat strong,
+.task-empty strong {
+  color: #202633;
   font-size: 15px;
   font-weight: 900;
 }
 
-.empty-state.error {
-  color: #b25747;
+.state-error {
+  color: #ff4757;
 }
 
-.message-header {
-  height: 82px;
-  min-height: 82px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, 300px) auto;
+.chat-header {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  align-items: center;
-  padding: 0 22px 0 24px;
-  border-bottom: 1px solid #ece9e2;
-  background: rgba(255, 255, 255, 0.92);
+  padding: 0 22px;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid #eef0f5;
 }
 
-.participant {
+.chat-user {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 12px;
 }
 
-.large-avatar {
-  width: 49px;
-  height: 49px;
-  flex: 0 0 auto;
-  font-size: 17px;
+.mobile-back {
+  display: none;
 }
 
-.participant-copy {
-  min-width: 0;
-}
-
-.participant-line strong {
-  color: #151713;
-  font-size: 16px;
-  font-weight: 900;
-}
-
-.presence {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #5b9d59;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.presence i {
-  width: 7px;
-  height: 7px;
+.chat-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
   border-radius: 50%;
-  background: #58b45f;
+  color: #fff;
+  background: linear-gradient(145deg, #6c5ce7, #596cff);
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(108, 92, 231, 0.2);
 }
 
-.participant-copy p {
-  margin: 5px 0 0;
-  color: #85877f;
-  font-size: 12px;
-}
-
-.task-context {
+.chat-title-copy {
   min-width: 0;
-  padding-left: 16px;
-  border-left: 1px solid #ece9e2;
 }
 
-.task-context span {
-  display: block;
-  color: #6f835f;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.task-context strong {
-  display: block;
-  margin-top: 5px;
-  color: #2d2f29;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.task-button,
-.icon-button {
-  height: 38px;
-  border: 1px solid #ece9e2;
-  border-radius: 7px;
-  background: #f4f5ee;
-  color: #60754e;
-  font-weight: 900;
-}
-
-.task-button {
-  padding: 0 18px;
+.chat-name,
+.chat-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.icon-button {
+.chat-name {
+  color: #202633;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.chat-sub {
+  margin-top: 3px;
+  color: #8b93a2;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chat-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.icon-btn {
   width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
+  border: 1px solid #eceef3;
+  border-radius: 12px;
   background: #fff;
-  color: #6f706a;
+  color: #555e70;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 8px 20px rgba(31, 36, 48, 0.05);
 }
 
 .message-scroll {
-  padding: 18px 24px 10px;
-  background:
-    linear-gradient(rgba(251, 250, 247, 0.82), rgba(251, 250, 247, 0.82)),
-    radial-gradient(circle at 18% 0, rgba(111, 131, 95, 0.08), transparent 34%);
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px;
 }
 
 .day-divider {
@@ -1014,317 +1104,385 @@ button {
 }
 
 .day-divider span {
-  padding: 5px 12px;
-  border-radius: 7px;
-  background: #f1f0eb;
-  color: #85877f;
-  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid rgba(236, 238, 243, 0.9);
+  border-radius: 999px;
+  color: #8b93a2;
+  background: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
   font-weight: 800;
 }
 
-.message-row {
+.msg-row {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 14px;
 }
 
-.message-row.mine {
+.msg-row.mine {
   justify-content: flex-end;
 }
 
-.mini-avatar {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  background: linear-gradient(135deg, #d8c4a5, #8aa078);
+.msg-mini {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: #111827;
   font-size: 11px;
+  font-weight: 900;
 }
 
-.mine-avatar {
-  background: linear-gradient(135deg, #e5c5a7, #8aa078);
-}
-
-.bubble-group {
-  max-width: min(520px, 68%);
+.bubble-wrap {
+  max-width: min(520px, 72%);
 }
 
 .bubble {
   padding: 11px 14px;
-  border: 1px solid #e9e6df;
-  border-radius: 7px;
+  border: 1px solid rgba(31, 36, 48, 0.06);
+  border-radius: 16px 16px 16px 6px;
   background: #fff;
-  color: #2c2d29;
+  color: #343b4c;
+  box-shadow: 0 8px 22px rgba(31, 36, 48, 0.06);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
-  box-shadow: 0 8px 20px rgba(55, 49, 40, 0.05);
 }
 
-.message-row.mine .bubble {
-  border-color: #e7eddf;
-  background: #eef3e7;
-  color: #3a4532;
+.msg-row.mine .bubble {
+  border: none;
+  border-radius: 16px 16px 6px 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #8657ff, #596cff);
+  box-shadow: 0 14px 26px rgba(108, 92, 231, 0.22);
 }
 
-.bubble-group time {
-  display: block;
+.bubble-time {
   margin-top: 5px;
-  padding: 0 3px;
-  color: #999b94;
-  font-size: 11px;
+  padding: 0 4px;
+  color: #9aa1ae;
+  font-size: 10px;
+  font-weight: 700;
 }
 
-.message-row.mine .bubble-group time {
+.msg-row.mine .bubble-time {
   text-align: right;
 }
 
-.composer {
-  min-height: 58px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
+.system-note {
+  max-width: 520px;
+  margin: 18px auto;
   padding: 10px 14px;
-  border-top: 1px solid #ece9e2;
-  background: #fff;
+  border: 1px solid #ffe1bd;
+  border-radius: 12px;
+  color: #9a5b1f;
+  background: #fff7ed;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
 }
 
-.composer-tools {
-  width: 30px;
-  height: 30px;
+.composer {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 10px;
+  align-items: end;
+  padding: 14px 18px 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #eef0f5;
+}
+
+.attach-btn,
+.send-btn {
+  border: none;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.attach-btn {
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
-  color: #7f8279;
+  border-radius: 13px;
+  color: #6c5ce7;
+  background: #f3f0ff;
+  font-size: 18px;
 }
 
-.composer textarea {
-  min-height: 37px;
-  max-height: 86px;
+.composer-input {
+  min-height: 42px;
+  max-height: 96px;
   resize: none;
-  padding: 9px 12px;
-  border: 1px solid #ece9e2;
-  border-radius: 7px;
-  outline: 0;
-  background: #fff;
-  color: #2a2b27;
-  font-size: 13px;
+  border: 1px solid #eceef3;
+  border-radius: 14px;
+  outline: none;
+  padding: 11px 14px;
+  color: #202633;
+  background: #fbfcfe;
+  font-size: 14px;
   line-height: 1.45;
 }
 
-.composer textarea:focus {
-  border-color: rgba(111, 131, 95, 0.45);
-  box-shadow: 0 0 0 4px rgba(111, 131, 95, 0.08);
+.composer-input:focus {
+  border-color: #7c4dff;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(124, 77, 255, 0.08);
 }
 
-.composer button {
-  height: 37px;
-  min-width: 58px;
-  border: 0;
-  border-radius: 7px;
-  background: #6f835f;
+.send-btn {
+  height: 42px;
+  min-width: 86px;
+  border-radius: 13px;
   color: #fff;
-  font-size: 13px;
-  font-weight: 900;
-  box-shadow: 0 8px 18px rgba(111, 131, 95, 0.18);
+  background: linear-gradient(135deg, #8657ff, #596cff);
+  box-shadow: 0 12px 22px rgba(108, 92, 231, 0.25);
+  font-size: 14px;
 }
 
-.composer button:disabled {
+.send-btn:disabled {
   cursor: not-allowed;
-  background: #c8c9c2;
+  background: #c8cbd3;
   box-shadow: none;
 }
 
-.notification-panel {
-  padding: 0 14px 14px;
+.task-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #eef0f5;
 }
 
-.notice-head {
-  min-height: 62px;
+.task-content {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.task-summary-card {
+  padding: 16px;
+  border: 1px solid #eceef3;
+  border-radius: 12px;
+  background: #fbfcfe;
+}
+
+.task-type-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 4px;
+  margin-bottom: 12px;
 }
 
-.notice-head h2 {
-  font-size: 17px;
-}
-
-.notice-head button {
-  border: 0;
-  background: transparent;
-  color: #60754e;
+.type-chip {
+  padding: 5px 10px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 900;
 }
 
-.notice-scroll {
-  display: grid;
-  align-content: start;
-  gap: 9px;
-  padding-right: 2px;
-}
-
-.notice-card {
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px 12px;
-  border: 1px solid #ece9e2;
-  border-radius: 7px;
-  background: #fff;
-  color: inherit;
-  text-align: left;
-  box-shadow: 0 8px 18px rgba(55, 49, 40, 0.04);
-}
-
-.notice-card:hover {
-  background: #fdfcf8;
-}
-
-.notice-card.unread {
-  border-color: #e6eddd;
-}
-
-.notice-icon {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: #fff;
-  background: #6f835f;
-  font-size: 17px;
-}
-
-.notice-icon.green,
-.notice-icon.tip {
-  background: #718861;
-}
-
-.notice-icon.blue {
-  background: #4e86dc;
-}
-
-.notice-icon.orange {
-  background: #f08a3f;
-}
-
-.notice-icon.purple {
-  background: #9272d2;
-}
-
-.notice-copy {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.notice-title-row strong {
-  flex: 1;
-  color: #252722;
-  font-size: 14px;
-  font-weight: 900;
-}
-
-.notice-title-row time {
-  flex: 0 0 auto;
-  color: #aaa79f;
+.remain {
+  flex-shrink: 0;
+  color: #8b93a2;
   font-size: 11px;
+  font-weight: 800;
 }
 
-.notice-body {
-  display: -webkit-box;
-  white-space: normal;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: #74766f;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.notice-action {
-  color: #617650;
-  font-size: 12px;
+.task-title {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 17px;
+  line-height: 1.35;
   font-weight: 900;
 }
 
-.notice-dot {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #ef4e5b;
-  transform: translateY(-50%);
+.reward {
+  margin-bottom: 12px;
+  color: #f17b2f;
+  font-size: 24px;
+  font-weight: 900;
 }
 
-.tip-card {
-  min-height: 78px;
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  margin-top: 10px;
-  padding: 12px;
-  border: 1px solid #e2e8d9;
-  border-radius: 7px;
-  background: #f0f4ea;
-}
-
-.tip-card strong {
-  color: #3c4a33;
-  font-size: 13px;
-}
-
-.tip-card p {
-  margin: 4px 0 0;
-  color: #65735c;
+.task-desc {
+  margin: 0;
+  color: #747d8f;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.6;
+  font-weight: 700;
 }
 
-@media (max-width: 1220px) {
-  .chat-shell {
-    grid-template-columns: 330px minmax(460px, 1fr);
+.info-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eef0f5;
+  font-size: 12px;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: #9aa1ae;
+  font-weight: 800;
+}
+
+.info-value {
+  min-width: 0;
+  color: #343b4c;
+  font-weight: 800;
+}
+
+.side-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.side-btn {
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.side-btn.primary {
+  color: #fff;
+  background: #111827;
+}
+
+.side-btn.secondary {
+  color: #3a4050;
+  background: #f3f4f7;
+}
+
+@media (max-width: 1180px) {
+  .chat-stage {
+    grid-template-columns: 300px minmax(360px, 1fr);
   }
 
-  .notification-panel {
+  .task-panel {
     display: none;
   }
 }
 
 @media (max-width: 860px) {
-  .chat-page {
-    padding: 14px;
+  .sidebar {
+    width: 68px;
+    min-width: 68px;
   }
 
-  .chat-shell {
+  .brand-copy,
+  .nav-label,
+  .sidebar-section,
+  .publish-btn {
+    display: none;
+  }
+
+  .brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .nav {
+    padding: 14px 10px;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .nav-item::before {
+    content: "•";
+    color: currentColor;
+    font-size: 20px;
+  }
+
+  .chat-stage {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .chat-page {
+    position: static;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .topbar {
     height: auto;
-    min-height: calc(100vh - 90px);
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .topbar-actions {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .chat-stage {
+    min-height: calc(100vh - 118px);
     grid-template-columns: 1fr;
   }
 
-  .message-header {
-    grid-template-columns: minmax(0, 1fr);
-    height: auto;
-    padding: 14px;
+  .conversation-list.hidden {
+    display: none;
   }
 
-  .task-context {
-    padding: 0;
-    border-left: 0;
+  .chat-main:not(.expanded) {
+    display: none;
   }
 
-  .conversation-panel {
-    min-height: 420px;
+  .mobile-back {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 10px;
+    color: #6d7280;
+    background: #f3f4f7;
+    cursor: pointer;
+    font-size: 22px;
+  }
+
+  .chat-actions {
+    display: none;
+  }
+
+  .bubble-wrap {
+    max-width: 82%;
+  }
+
+  .composer {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .emoji-btn {
+    display: none;
   }
 }
 </style>

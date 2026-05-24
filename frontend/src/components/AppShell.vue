@@ -12,19 +12,17 @@
 
         <nav class="nav-links">
           <RouterLink to="/tasks" class="nav-link nav-home">首页</RouterLink>
+          <RouterLink to="/tasks" class="nav-link nav-hall">任务大厅</RouterLink>
           <RouterLink to="/tasks/new" class="nav-link">发布任务</RouterLink>
           <RouterLink to="/map" class="nav-link">地图</RouterLink>
-          <RouterLink to="/chat" class="nav-link nav-message">
-            消息
-            <span v-if="messageBadgeCount">{{ messageBadgeText }}</span>
-          </RouterLink>
+          <RouterLink to="/notifications" class="nav-link nav-message">消息<span>3</span></RouterLink>
           <RouterLink to="/my-tasks" class="nav-link">我的</RouterLink>
         </nav>
 
         <div class="top-actions">
           <form class="global-search" role="search" @submit.prevent="runGlobalSearch">
             <input v-model.trim="globalKeyword" type="search" placeholder="搜索任务关键词" />
-            <button type="submit" aria-label="搜索任务关键词"><AppIcon name="search" /></button>
+            <button type="submit" aria-label="搜索任务关键词">⌕</button>
           </form>
 
           <div v-if="authStore.isAuthenticated" ref="userMenuRef" class="user-menu-wrap">
@@ -56,20 +54,15 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import { useNotificationStore } from "@/stores/notification";
-import AppIcon from "@/components/ui/AppIcon.vue";
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
-const notificationStore = useNotificationStore();
 const showUserMenu = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
 const globalKeyword = ref("");
 
 const userInitial = computed(() => authStore.currentUser?.nickname?.charAt(0) || "邮");
-const messageBadgeCount = computed(() => notificationStore.totalUnreadCount);
-const messageBadgeText = computed(() => (messageBadgeCount.value > 99 ? "99+" : String(messageBadgeCount.value)));
 
 function routeKeyword() {
   return typeof route.query.keyword === "string" ? route.query.keyword : "";
@@ -101,17 +94,9 @@ watch(
   },
 );
 
-watch(
-  () => route.fullPath,
-  () => {
-    if (authStore.isAuthenticated) void notificationStore.refreshUnreadCounts();
-  },
-);
-
 onMounted(() => {
   globalKeyword.value = routeKeyword();
   document.addEventListener("click", handleDocumentClick);
-  if (authStore.isAuthenticated) void notificationStore.refreshUnreadCounts();
 });
 onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick));
 </script>
@@ -128,7 +113,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   position: sticky;
   top: 0;
   z-index: 100;
-  height: 62px;
+  height: 86px;
   background: rgba(251, 250, 247, 0.94);
   backdrop-filter: blur(14px);
 }
@@ -138,7 +123,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 8px;
   height: 1px;
   background: rgba(80, 80, 72, 0.07);
   pointer-events: none;
@@ -164,8 +149,8 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 
 .brand-mark {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 39px;
+  height: 39px;
   flex: 0 0 auto;
   border-radius: 9px;
   background: linear-gradient(145deg, #728766, #536b49);
@@ -174,18 +159,18 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 
 .brand-mark i {
   position: absolute;
-  left: 9px;
-  width: 15px;
-  height: 8px;
+  left: 11px;
+  width: 16px;
+  height: 9px;
   border: 2px solid #fff;
   border-top: 0;
   border-radius: 2px;
   transform: rotate(30deg) skewX(-18deg);
 }
 
-.brand-mark i:nth-child(1) { top: 8px; opacity: 0.92; }
-.brand-mark i:nth-child(2) { top: 13px; opacity: 0.84; }
-.brand-mark i:nth-child(3) { top: 18px; opacity: 0.76; }
+.brand-mark i:nth-child(1) { top: 10px; opacity: 0.92; }
+.brand-mark i:nth-child(2) { top: 15px; opacity: 0.84; }
+.brand-mark i:nth-child(3) { top: 20px; opacity: 0.76; }
 
 .brand-copy {
   display: grid;
@@ -193,14 +178,14 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 }
 
 .brand-copy strong {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 900;
 }
 
 .brand-copy small {
-  margin-top: 3px;
+  margin-top: 4px;
   color: #858781;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .nav-links {
@@ -212,7 +197,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 
 .nav-link {
   position: relative;
-  height: 34px;
+  height: 38px;
   min-width: 48px;
   display: grid;
   place-items: center;
@@ -223,19 +208,17 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   font-size: 14px;
   font-weight: 800;
   white-space: nowrap;
-  transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
 
 .nav-link:hover {
   color: #627653;
-  transform: translateY(-1px);
 }
 
-.nav-link.router-link-active::after {
+.nav-home.router-link-active::after {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -6px;
+  bottom: -12px;
   width: 30px;
   height: 3px;
   border-radius: 999px;
@@ -243,7 +226,13 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   transform: translateX(-50%);
 }
 
-.nav-message span {
+.nav-hall.router-link-active {
+  min-width: 87px;
+  background: #f0efeb;
+}
+
+.nav-message span,
+.bell span {
   position: absolute;
   width: 17px;
   height: 17px;
@@ -270,7 +259,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 
 .global-search {
   width: 257px;
-  height: 34px;
+  height: 37px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -279,12 +268,6 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   border-radius: 9px;
   background: #fff;
   box-shadow: 0 9px 20px rgba(60, 54, 45, 0.04);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.global-search:focus-within {
-  border-color: rgba(58, 120, 214, 0.38);
-  box-shadow: 0 0 0 4px rgba(58, 120, 214, 0.08), 0 10px 24px rgba(60, 54, 45, 0.05);
 }
 
 .global-search input {
@@ -307,14 +290,27 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   background: transparent;
   color: #8a8d86;
   cursor: pointer;
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1;
-  transition: color 0.18s ease, transform 0.18s ease;
 }
 
 .global-search button:hover {
-  color: #3a78d6;
-  transform: scale(1.08);
+  color: #627653;
+}
+
+.bell {
+  position: relative;
+  width: 27px;
+  height: 31px;
+  color: #333630;
+  text-decoration: none;
+  font-size: 23px;
+  line-height: 31px;
+}
+
+.bell span {
+  right: -8px;
+  top: -7px;
 }
 
 .user-menu-wrap {
@@ -322,7 +318,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 }
 
 .user-chip {
-  height: 36px;
+  height: 42px;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -331,16 +327,11 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   color: inherit;
   cursor: pointer;
   font: inherit;
-  transition: transform 0.18s ease;
-}
-
-.user-chip:hover {
-  transform: translateY(-1px);
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
+  width: 37px;
+  height: 37px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -372,7 +363,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 .dropdown {
   position: absolute;
   right: 0;
-  top: 42px;
+  top: 48px;
   width: 178px;
   padding: 8px;
   border: 1px solid #ebe8df;
@@ -405,7 +396,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 }
 
 .shell-main {
-  min-height: calc(100vh - 62px);
+  min-height: calc(100vh - 86px);
 }
 
 @media (max-width: 1180px) {
