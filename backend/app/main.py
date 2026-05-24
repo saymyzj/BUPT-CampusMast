@@ -21,6 +21,7 @@ app = FastAPI(title=settings.app_name, debug=settings.app_debug)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origin_list(),
+    allow_origin_regex=r"^https?://.*:5173$" if settings.app_env == "development" else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,6 +44,11 @@ app.include_router(recommendation.router, prefix=settings.api_prefix)
 app.include_router(admin.router, prefix=settings.api_prefix)
 app.include_router(upload.router, prefix=settings.api_prefix)
 app.include_router(websocket_router)
+
+
+@app.get("/", tags=["Health"])
+def root() -> dict:
+    return {"status": "ok", "service": settings.app_name, "docs": "/docs"}
 
 
 @app.get("/healthz", tags=["Health"])

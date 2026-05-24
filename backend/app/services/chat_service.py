@@ -26,13 +26,17 @@ def list_conversations(db: Session, *, user_id: str) -> list[dict[str, Any]]:
         conversation = db.get(ChatConversation, participant.conversation_id)
         if conversation is None:
             continue
+        task = db.get(Task, conversation.task_id)
+        task_status = task.status.value if task else None
         latest_message = (
             db.query(ChatMessage)
             .filter(ChatMessage.conversation_id == conversation.id)
             .order_by(ChatMessage.created_at.desc())
             .first()
         )
-        conversations.append(serialize_conversation(conversation, participant, latest_message))
+        result = serialize_conversation(conversation, participant, latest_message)
+        result["taskStatus"] = task_status
+        conversations.append(result)
     return conversations
 
 

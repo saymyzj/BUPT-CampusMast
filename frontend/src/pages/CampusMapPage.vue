@@ -1,42 +1,9 @@
 <template>
   <div class="map-page">
-    <header class="map-topbar">
-      <RouterLink to="/tasks" class="brand">
-        <span class="brand-mark"><span></span><span></span><span></span></span>
-        <span><strong>CampusMast</strong><small>北邮校园互助平台</small></span>
-      </RouterLink>
-
-      <nav>
-        <RouterLink to="/tasks">首页</RouterLink>
-        <RouterLink to="/tasks">任务大厅</RouterLink>
-        <RouterLink to="/tasks/new">发布任务</RouterLink>
-        <RouterLink to="/map" class="active">地图</RouterLink>
-        <RouterLink to="/notifications" class="badge-link">消息<b>3</b></RouterLink>
-        <RouterLink to="/my-tasks">我的⌄</RouterLink>
-      </nav>
-
-      <div class="top-actions">
-        <label class="search"><input type="search" placeholder="搜索任务、楼宇或关键词" /><span>⌕</span></label>
-        <div class="user-chip">
-          <span class="avatar">{{ userInitial }}</span>
-          <span><strong>你好，{{ authStore.currentUser?.nickname || "同学" }}</strong><small>信用分 {{ authStore.currentUser?.overallCreditScore ?? 828 }}</small></span>
-          <i>⌄</i>
-        </div>
-      </div>
-    </header>
-
     <main class="map-shell">
       <aside class="left-panel">
-        <div class="tabs">
-          <button :class="{ active: activeTab === 'tasks' }" @click="activeTab = 'tasks'">附近任务</button>
-          <button :class="{ active: activeTab === 'buildings' }" @click="activeTab = 'buildings'">楼宇列表</button>
-        </div>
-
-        <div class="filter-row">
-          <select v-model="buildingFilter">
-            <option value="">全部楼宇</option>
-            <option v-for="building in mapStore.buildings" :key="building.code" :value="building.code">{{ building.name }}</option>
-          </select>
+        <div class="panel-toolbar">
+          <strong>附近任务</strong>
           <select :value="mapStore.activeFilter" @change="changeCategory(($event.target as HTMLSelectElement).value)">
             <option value="all">全部分类</option>
             <option value="package">代取快递</option>
@@ -44,13 +11,10 @@
             <option value="move">搬运重物</option>
             <option value="other">其他</option>
           </select>
-          <select disabled>
-            <option>3km内</option>
-          </select>
         </div>
 
-        <template v-if="activeTab === 'tasks'">
-          <p class="panel-hint">当前位置附近 · {{ visiblePanelPins.length }} 个任务</p>
+        <p class="panel-hint">当前位置附近 · {{ visiblePanelPins.length }} 个任务</p>
+        <div class="task-scroll">
           <div v-if="mapStore.tasksLoading" class="panel-state">正在加载地图任务...</div>
           <div v-else-if="mapStore.tasksError" class="panel-state error">{{ mapStore.tasksError }}</div>
           <div v-else class="nearby-list">
@@ -61,36 +25,31 @@
               :class="{ selected: mapStore.activeTaskId === pin.id }"
               @click="mapStore.showTask(pin.id)"
             >
-              <div class="pin-icon" :class="`cat-${pin.category}`">{{ categoryIcon(pin.category) }}</div>
+              <div class="pin-icon" :class="`cat-${pin.category}`">
+                <AppIcon :name="categoryIcon(pin.category)" />
+              </div>
               <div class="nearby-main">
                 <h3>{{ pin.title }}</h3>
-                <span class="task-tag" :class="`tag-${pin.category}`">{{ categoryLabel(pin.category) }}</span>
-                <footer>
-                  <span class="mini-avatar">{{ pin.requesterName.charAt(0) }}</span>
-                  <strong>{{ pin.requesterName }}</strong>
-                  <small>信用分 {{ pin.requesterCreditScore }}</small>
-                </footer>
+                <div class="nearby-meta">
+                  <span class="task-tag" :class="`tag-${pin.category}`">{{ categoryLabel(pin.category) }}</span>
+                  <span class="location-text"><AppIcon name="location" />{{ locationText(pin) }}</span>
+                </div>
               </div>
               <div class="nearby-side">
-                <strong>{{ pin.reward.replace("楼", "¥") }}</strong>
-                <small>{{ distanceText(pin.distanceKm) }}</small>
+                <strong>{{ pin.reward }}</strong>
                 <em>{{ pin.timeLeft }}</em>
+                <footer>
+                  <span class="mini-avatar">{{ pin.requesterName.charAt(0) }}</span>
+                  <span class="user-text">
+                    <b>{{ pin.requesterName }}</b>
+                    <small class="credit">信用分 {{ pin.requesterCreditScore }}</small>
+                  </span>
+                </footer>
               </div>
             </article>
             <RouterLink class="view-all" to="/tasks">查看全部 {{ visiblePanelPins.length }} 个任务 ›</RouterLink>
           </div>
-        </template>
-
-        <template v-else>
-          <p class="panel-hint">北邮校内常用楼宇</p>
-          <div class="building-list">
-            <button v-for="building in mapStore.buildings" :key="building.code" @click="mapStore.openBuilding(building.code)">
-              <span>⌂</span>
-              <strong>{{ building.name }}</strong>
-              <small>{{ building.campusZone }}</small>
-            </button>
-          </div>
-        </template>
+        </div>
       </aside>
 
       <section class="map-board">
@@ -102,22 +61,11 @@
 
       <aside class="right-stack">
         <section class="float-card">
-          <header><h2>我的常用楼宇</h2><button>管理</button></header>
-          <ul class="building-shortcuts">
-            <li v-for="building in commonBuildings" :key="building.code">
-              <span>⌂</span>
-              <strong>{{ building.name }}</strong>
-              <small>{{ buildingDistance(building.code) }}</small>
-            </li>
-          </ul>
-        </section>
-
-        <section class="float-card">
           <h2>当前位置附近任务</h2>
           <ul class="category-stats">
-            <li><span class="dot all"></span><strong>全部任务</strong><small>{{ mapStore.visiblePins.length }}</small></li>
+            <li><span class="legend-icon all"><AppIcon name="spark" /></span><strong>全部任务</strong><small>{{ mapStore.visiblePins.length }}</small></li>
             <li v-for="stat in categoryStats" :key="stat.key">
-              <span class="dot" :style="{ background: stat.color }"></span>
+              <span class="legend-icon" :class="`cat-${stat.key}`"><AppIcon :name="stat.icon" /></span>
               <strong>{{ stat.label }}</strong>
               <small>{{ stat.count }}</small>
             </li>
@@ -126,10 +74,9 @@
 
         <section class="float-card help-card">
           <h2>地图说明</h2>
-          <p><span>⌖</span> 点击图标查看任务详情</p>
-          <p><span>↕</span> 拖动地图可移动视角</p>
-          <p><span>＋</span> 滑动滚轮可缩放地图</p>
-          <p><span class="blue-dot"></span> 蓝色范围为步行 5 分钟范围</p>
+          <p><span><AppIcon name="map-pin" /></span> 点击图标查看任务详情</p>
+          <p><span><AppIcon name="hand" /></span> 拖动地图可移动视角</p>
+          <p><span><AppIcon name="zoom-in" /></span> 滑动滚轮可缩放地图</p>
         </section>
       </aside>
 
@@ -148,22 +95,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import MapContainer from "@/components/map/MapContainer.vue";
 import TaskBeaconLayer from "@/components/map/TaskBeaconLayer.vue";
 import PickerLayer from "@/components/map/PickerLayer.vue";
-import { useAuthStore } from "@/stores/auth";
+import AppIcon from "@/components/ui/AppIcon.vue";
 import { useMapStore, type MapTaskPin } from "@/stores/map";
 import type { CategoryType } from "@/types/map";
 
 const route = useRoute();
 const router = useRouter();
-const authStore = useAuthStore();
 const mapStore = useMapStore();
-
-const activeTab = ref<"tasks" | "buildings">("tasks");
-const buildingFilter = ref("");
 
 const labels: Record<CategoryType, string> = {
   package: "代取快递",
@@ -173,10 +116,10 @@ const labels: Record<CategoryType, string> = {
 };
 
 const icons: Record<CategoryType, string> = {
-  package: "▣",
-  food: "▤",
-  move: "⇄",
-  other: "✦",
+  package: "package",
+  food: "food",
+  move: "move",
+  other: "other",
 };
 
 const colors: Record<CategoryType, string> = {
@@ -186,18 +129,16 @@ const colors: Record<CategoryType, string> = {
   other: "#8b75d7",
 };
 
-const userInitial = computed(() => authStore.currentUser?.nickname?.charAt(0) || "同");
 const visiblePanelPins = computed(() => {
   const pins = mapStore.pinsWithDistance as Array<MapTaskPin & { distanceKm: number | null }>;
-  if (!buildingFilter.value) return pins;
-  return pins.filter((pin) => pin.buildingCode === buildingFilter.value);
+  return pins;
 });
 
-const commonBuildings = computed(() => mapStore.buildings.slice(0, 4));
 const categoryStats = computed(() =>
   (Object.keys(labels) as CategoryType[]).map((key) => ({
     key,
     label: labels[key],
+    icon: icons[key],
     color: colors[key],
     count: mapStore.visiblePins.filter((pin) => pin.category === key).length,
   })),
@@ -211,19 +152,8 @@ function categoryIcon(category: CategoryType) {
   return icons[category];
 }
 
-function distanceText(distanceKm: number | null) {
-  return distanceKm == null ? "校内" : `${distanceKm.toFixed(2)}km`;
-}
-
-function buildingDistance(code: string) {
-  const building = mapStore.buildings.find((item) => item.code === code);
-  if (!building || !mapStore.userLocation) return "校内";
-  const dLat = ((building.latitude - mapStore.userLocation.lat) * Math.PI) / 180;
-  const dLng = ((building.longitude - mapStore.userLocation.lng) * Math.PI) / 180;
-  const lat1 = (mapStore.userLocation.lat * Math.PI) / 180;
-  const lat2 = (building.latitude * Math.PI) / 180;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return `${(6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))).toFixed(2)}km`;
+function locationText(pin: MapTaskPin) {
+  return pin.to?.trim() || "校内地点";
 }
 
 function changeCategory(value: string) {
@@ -265,262 +195,68 @@ onUnmounted(() => {
 
 <style scoped>
 .map-page {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  grid-template-rows: 98px 1fr;
+  min-height: calc(100vh - 62px);
+  padding: 18px 30px 28px;
   background: #fbfaf7;
   color: #252723;
   font-family: "Inter", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-}
-
-.map-topbar {
-  display: grid;
-  grid-template-columns: 270px 1fr 560px;
-  align-items: center;
-  gap: 24px;
-  padding: 0 60px;
-  background: rgba(251, 250, 247, 0.92);
-  border-bottom: 1px solid rgba(74, 84, 64, 0.08);
-  backdrop-filter: blur(18px);
-  z-index: 20;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.brand > span:last-child {
-  display: grid;
-  line-height: 1.15;
-}
-
-.brand strong {
-  font-size: 20px;
-  font-weight: 900;
-}
-
-.brand small {
-  margin-top: 3px;
-  color: #8c887f;
-  font-size: 13px;
-}
-
-.brand-mark {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: linear-gradient(145deg, #6f835f, #536b48);
-}
-
-.brand-mark span {
-  position: absolute;
-  width: 18px;
-  height: 10px;
-  border: 2px solid #fff;
-  border-top: 0;
-  border-radius: 2px;
-  transform: rotate(30deg) skewX(-18deg);
-}
-
-.brand-mark span:nth-child(1) { margin-top: -9px; opacity: 0.9; }
-.brand-mark span:nth-child(2) { opacity: 0.82; }
-.brand-mark span:nth-child(3) { margin-top: 9px; opacity: 0.74; }
-
-.map-topbar nav {
-  display: flex;
-  justify-content: center;
-  gap: 34px;
-}
-
-.map-topbar nav a {
-  position: relative;
-  padding: 13px 4px;
-  color: #22241f;
-  text-decoration: none;
-  font-weight: 800;
-}
-
-.map-topbar nav a.active::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 32px;
-  height: 3px;
-  border-radius: 999px;
-  background: #6f835f;
-  transform: translateX(-50%);
-}
-
-.badge-link b,
-.bell b {
-  position: absolute;
-  min-width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #ef4e5b;
-  color: #fff;
-  font-size: 11px;
-}
-
-.badge-link b {
-  top: 1px;
-  right: -16px;
-}
-
-.top-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 18px;
-}
-
-.search {
-  width: 292px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  border: 1px solid #eceae4;
-  border-radius: 10px;
-  background: #fff;
-}
-
-.search input {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-}
-
-.bell {
-  position: relative;
-  color: #33342f;
-  text-decoration: none;
-  font-size: 22px;
-}
-
-.bell b {
-  top: -8px;
-  right: -10px;
-}
-
-.user-chip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.avatar {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #e9ded1;
-  color: #596d4b;
-  font-weight: 900;
-}
-
-.user-chip span:nth-child(2) {
-  display: grid;
-  line-height: 1.15;
-}
-
-.user-chip strong {
-  font-size: 13px;
-}
-
-.user-chip small {
-  margin-top: 4px;
-  color: #8c887f;
-  font-size: 12px;
+  overflow: hidden;
 }
 
 .map-shell {
   position: relative;
-  min-height: 0;
-  padding: 0 60px 46px;
+  height: calc(100vh - 108px);
+  min-height: 640px;
+  max-width: 1620px;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: 430px minmax(0, 1fr);
+  grid-template-columns: 400px minmax(0, 1fr);
   gap: 0;
 }
 
 .left-panel {
+  display: flex;
+  flex-direction: column;
   z-index: 5;
   margin-top: 0;
-  padding: 24px;
+  padding: 22px 24px 20px;
   border: 1px solid #e8e5dc;
   border-right: 0;
   border-radius: 18px 0 0 18px;
   background: rgba(255, 253, 250, 0.95);
   box-shadow: 0 18px 44px rgba(65, 57, 46, 0.08);
-  overflow: auto;
+  overflow: hidden;
 }
 
-.tabs {
+.panel-toolbar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  margin-bottom: 18px;
-  padding: 4px;
-  border-radius: 10px;
-  background: #f2f2ee;
-}
-
-.tabs button {
-  height: 46px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: #8a8a82;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 900;
-}
-
-.tabs button.active {
-  background: #fffdfa;
-  color: #6f835f;
-}
-
-.filter-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(82px, 1fr) 150px;
+  align-items: center;
   gap: 10px;
+  margin-bottom: 16px;
 }
 
-.filter-row select {
-  height: 38px;
+.panel-toolbar strong {
+  color: #2d3428;
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.panel-toolbar select {
+  height: 36px;
   min-width: 0;
-  border: 1px solid #e3dfd6;
+  padding: 0 11px;
+  border: 1px solid #e6e2d9;
   border-radius: 8px;
-  background: #fff;
+  background: #fffdfa;
   color: #41433e;
   font: inherit;
   font-size: 12px;
-}
-
-.filter-row select:disabled {
-  color: #9b9d97;
+  box-shadow: 0 6px 14px rgba(70, 63, 52, 0.025);
 }
 
 .panel-hint {
-  margin: 22px 0 14px;
+  margin: 0 0 14px;
   color: #70825f;
   font-size: 14px;
   font-weight: 800;
@@ -537,6 +273,26 @@ onUnmounted(() => {
   color: #b24a3a;
 }
 
+.task-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.task-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.task-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.task-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(111, 131, 95, 0.26);
+}
+
 .nearby-list {
   display: grid;
   gap: 10px;
@@ -544,31 +300,40 @@ onUnmounted(() => {
 
 .nearby-card {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 72px;
+  grid-template-columns: 58px minmax(0, 1fr) 112px;
   gap: 12px;
   align-items: center;
-  min-height: 104px;
-  padding: 13px;
+  min-height: 98px;
+  padding: 13px 12px;
   border: 1px solid #ece8df;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #fff;
+  box-shadow: none;
   cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
 }
 
 .nearby-card:hover,
 .nearby-card.selected {
-  border-color: #b8c8ae;
+  border-color: #c7d4bd;
+  background: #fff;
   box-shadow: 0 10px 24px rgba(91, 111, 76, 0.12);
+  transform: translateY(-1px);
 }
 
 .pin-icon {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
-  font-size: 24px;
+  border-radius: 14px;
+  font-size: 22px;
   font-weight: 900;
+}
+
+.pin-icon .app-icon {
+  width: 1em;
+  height: 1em;
 }
 
 .cat-package { background: #edf4fb; color: #4d7db9; }
@@ -578,6 +343,8 @@ onUnmounted(() => {
 
 .nearby-main {
   min-width: 0;
+  align-self: center;
+  padding-top: 4px;
 }
 
 .nearby-main h3 {
@@ -586,14 +353,42 @@ onUnmounted(() => {
   color: #191b17;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 15px;
-  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+.nearby-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: #83857e;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.location-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-text .app-icon {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: #8c8f87;
 }
 
 .task-tag {
   display: inline-block;
   padding: 3px 8px;
-  border-radius: 7px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 800;
 }
@@ -603,18 +398,22 @@ onUnmounted(() => {
 .tag-move { background: #e8f0e3; color: #6d835f; }
 .tag-other { background: #ebe7f8; color: #7b6cc4; }
 
-.nearby-main footer {
+.nearby-side footer {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  margin-top: 11px;
   color: #8a8c85;
   font-size: 12px;
+  white-space: nowrap;
 }
 
-.nearby-main .mini-avatar {
-  width: 22px;
-  height: 22px;
+.nearby-side .mini-avatar {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -623,22 +422,48 @@ onUnmounted(() => {
   font-weight: 900;
 }
 
-.nearby-main footer strong {
+.user-text {
+  min-width: 0;
+  max-width: 76px;
+  display: grid;
+  justify-items: end;
+  line-height: 1.1;
+}
+
+.user-text b {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
   color: #2d2f2a;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.credit {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #df8a2f;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nearby-side {
   display: grid;
   justify-items: end;
+  align-content: space-between;
+  align-self: stretch;
   gap: 7px;
 }
 
 .nearby-side strong {
   color: #6f835f;
-  font-size: 19px;
+  font-size: 18px;
+  font-weight: 950;
 }
 
-.nearby-side small,
 .nearby-side em {
   color: #83857e;
   font-size: 12px;
@@ -646,44 +471,12 @@ onUnmounted(() => {
 }
 
 .view-all {
-  padding: 8px;
+  padding: 7px 8px 2px;
   color: #6f835f;
+  font-size: 12px;
   text-align: center;
   text-decoration: none;
-  font-weight: 900;
-}
-
-.building-list {
-  display: grid;
-  gap: 10px;
-}
-
-.building-list button {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 10px;
-  align-items: center;
-  padding: 12px;
-  border: 1px solid #ece8df;
-  border-radius: 10px;
-  background: #fff;
-  cursor: pointer;
-  text-align: left;
-}
-
-.building-list span {
-  grid-row: span 2;
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #eef4ea;
-  color: #6f835f;
-}
-
-.building-list small {
-  color: #8b8d86;
+  font-weight: 800;
 }
 
 .map-board {
@@ -697,27 +490,21 @@ onUnmounted(() => {
 
 .right-stack {
   position: absolute;
-  top: 54px;
-  right: 78px;
-  z-index: 6;
-  width: 270px;
+  top: 52px;
+  right: 18px;
+  z-index: 800;
+  width: 222px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .float-card {
-  padding: 20px;
+  padding: 18px;
   border: 1px solid #ece8df;
   border-radius: 14px;
   background: rgba(255, 253, 250, 0.95);
   box-shadow: 0 18px 38px rgba(65, 57, 46, 0.12);
   backdrop-filter: blur(12px);
-}
-
-.float-card header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .float-card h2 {
@@ -726,19 +513,6 @@ onUnmounted(() => {
   font-weight: 900;
 }
 
-.float-card header h2 {
-  margin-bottom: 0;
-}
-
-.float-card button {
-  border: 0;
-  background: transparent;
-  color: #6f835f;
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.building-shortcuts,
 .category-stats {
   display: grid;
   gap: 14px;
@@ -747,43 +521,34 @@ onUnmounted(() => {
   list-style: none;
 }
 
-.building-shortcuts li,
 .category-stats li {
   display: grid;
-  grid-template-columns: 32px 1fr auto;
+  grid-template-columns: 28px 1fr auto;
   align-items: center;
   gap: 10px;
 }
 
-.building-shortcuts span {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #eef4ea;
-  color: #6f835f;
-}
-
-.building-shortcuts strong,
 .category-stats strong {
   font-size: 13px;
 }
 
-.building-shortcuts small,
 .category-stats small {
   color: #8b8d86;
   font-size: 12px;
 }
 
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+.legend-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 15px;
 }
 
-.dot.all {
-  background: #6f835f;
+.legend-icon.all {
+  background: #eef3ea;
+  color: #6f835f;
 }
 
 .help-card {
@@ -802,21 +567,21 @@ onUnmounted(() => {
 
 .help-card span {
   width: 22px;
+  display: grid;
+  place-items: center;
   color: #6f835f;
 }
 
-.blue-dot {
-  width: 14px !important;
-  height: 14px;
-  border-radius: 50%;
-  background: #d8e7fb;
+.help-card .app-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .picker-banner {
   position: absolute;
   left: 50%;
   bottom: 24px;
-  z-index: 10;
+  z-index: 900;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -858,18 +623,15 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1180px) {
-  .map-topbar {
-    grid-template-columns: 230px 1fr;
-    padding: 0 24px;
-  }
-
-  .top-actions {
-    display: none;
+  .map-page {
+    padding: 18px 18px 24px;
+    overflow: auto;
   }
 
   .map-shell {
     grid-template-columns: 360px minmax(0, 1fr);
-    padding: 0 24px 28px;
+    height: calc(100vh - 104px);
+    min-height: 560px;
   }
 
   .right-stack {

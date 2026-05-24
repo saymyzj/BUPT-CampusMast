@@ -123,7 +123,7 @@ def _ensure_demo_task(db: Session, requester_id: str, helper_id: str) -> Task:
             description="快递已到驿站，晚上九点前送到学生10号公寓门口即可。",
             category=TaskCategory.PACKAGE,
             reward=8.50,
-            status=TaskStatus.PENDING_REVIEW,
+            status=TaskStatus.PENDING,
             building_code="BUPT_MAIN",
             location_detail="学生10号公寓门口",
             deadline=datetime.now(timezone.utc) + timedelta(days=1),
@@ -246,3 +246,6 @@ def _ensure_homepage_blocks(db: Session, admin_id: str) -> None:
             ),
         ]
     )
+
+    # 使用 sqlite 作本地开发兜底，便于在没有 MySQL 服务或凭据的机器上快速联调
+    database_url: str = "sqlite:///./campusmast.db"

@@ -400,7 +400,8 @@ onMounted(async () => {
   --reward-orange: #df8a2f;
   --surface: #fffdfa;
   --line: #e7e1d6;
-  min-height: calc(100vh - 86px);
+  min-height: calc(100vh - 62px);
+  padding-top: 14px;
   padding-bottom: 28px;
   overflow-x: hidden;
   background:

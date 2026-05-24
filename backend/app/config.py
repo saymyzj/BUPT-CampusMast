@@ -53,10 +53,4 @@ settings = Settings()
 
 
 def get_cors_origin_list() -> list[str]:
-    """
-    文件说明：
-    这是 CORS 白名单解析函数。
-    它把环境变量中的逗号分隔字符串转成 FastAPI 可直接使用的 origin 列表，
-    避免把 `allow_origins=["*"]` 带到部署环境里。
-    """
     return [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]

@@ -21,7 +21,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/map",
     component: () => import("@/pages/CampusMapPage.vue"),
-    meta: { layout: "map", requiresAuth: true },
+    meta: { requiresAuth: true },
   },
   { path: "/admin", component: () => import("@/pages/AdminDashboardPage.vue"), meta: { requiresAuth: true } },
 ];

@@ -13,11 +13,23 @@ from app.config import settings
 from app.utils.ids import generate_id
 
 
+PLACEHOLDER_VALUES = {"replace-me", "your-access-key-id", "your-access-key-secret", "changeme"}
+
+
+def _is_configured(value: str | None) -> bool:
+    return bool(value and value.strip() and value.strip().lower() not in PLACEHOLDER_VALUES)
+
+
 def build_signed_upload_payload(filename: str, content_type: str) -> dict[str, str]:
     suffix = Path(filename).suffix or ""
     file_key = f"uploads/{generate_id('file')}{suffix}"
 
-    if settings.oss_endpoint and settings.oss_bucket_name and settings.oss_access_key_id and settings.oss_access_key_secret:
+    if (
+        _is_configured(settings.oss_endpoint)
+        and _is_configured(settings.oss_bucket_name)
+        and _is_configured(settings.oss_access_key_id)
+        and _is_configured(settings.oss_access_key_secret)
+    ):
         auth = oss2.Auth(settings.oss_access_key_id, settings.oss_access_key_secret)
         bucket = oss2.Bucket(auth, f"https://{settings.oss_endpoint}", settings.oss_bucket_name)
         upload_url = bucket.sign_url(

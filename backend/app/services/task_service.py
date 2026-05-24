@@ -169,9 +169,26 @@ def _task_event_name(from_status: TaskStatus, to_status: TaskStatus) -> str:
     return TRANSITION_RULES[(from_status, to_status)]["event"]
 
 
+def _notification_text(task: Task, event_name: str) -> tuple[str, str]:
+    templates: dict[str, tuple[str, str]] = {
+        "TASK_ACCEPTED": ("任务已被接取", "你的任务「{title}」已被接取，请等待对方完成"),
+        "TASK_SUBMITTED": ("任务完成待确认", "「{title}」已完成，请确认验收"),
+        "TASK_CONFIRMED": ("任务已确认完成", "「{title}」已被确认完成，赏金已到账"),
+        "TASK_REJECTED": ("任务验收被拒绝", "「{title}」验收被拒绝，请查看详情"),
+        "TASK_CANCELLED": ("任务已取消", "「{title}」已被取消"),
+        "TASK_DISPUTED": ("任务产生争议", "「{title}」产生争议，等待管理员处理"),
+        "DISPUTE_RESOLVED": ("争议已解决", "「{title}」争议已被管理员解决"),
+    }
+    tpl = templates.get(event_name, ("任务状态更新", "「{title}」状态已更新"))
+    title_tpl, body_tpl = tpl
+    task_title = task.title if task.title else "未命名任务"
+    return title_tpl, body_tpl.format(title=task_title)
+
+
 def _emit_task_event(_db: Session, _task: Task, _event_name: str) -> None:
     from app.services.notification_service import create_notification
 
+    notify_title, notify_body = _notification_text(_task, _event_name)
     recipients = {_task.requester_id}
     if _task.helper_id is not None:
         recipients.add(_task.helper_id)
@@ -180,8 +197,8 @@ def _emit_task_event(_db: Session, _task: Task, _event_name: str) -> None:
             _db,
             user_id=user_id,
             type_=_event_name,
-            title="Task status updated",
-            body=f"Task {_task.id} status changed to {_task.status.value}",
+            title=notify_title,
+            body=notify_body,
             related_task_id=_task.id,
         )
 
@@ -248,6 +265,8 @@ def task_to_dict(db: Session, task: Task, *, include_logs: bool = False) -> dict
         "reward": money_text(task.reward),
         "status": task.status.value,
         "buildingCode": task.building_code,
+        "latitude": float(task.latitude) if task.latitude is not None else None,
+        "longitude": float(task.longitude) if task.longitude is not None else None,
         "locationDetail": task.location_detail,
         "deadline": task.deadline.isoformat() if task.deadline else None,
         "imageUrls": json.loads(task.image_urls or "[]"),
@@ -320,7 +339,9 @@ def create_task(db: Session, requester_id: str, payload) -> Task:
             category=_category(payload.category),
             reward=reward,
             status=TaskStatus.PENDING,
-            building_code=payload.buildingCode,
+            building_code=payload.buildingCode or "",
+            latitude=payload.latitude,
+            longitude=payload.longitude,
             location_detail=payload.locationDetail,
             deadline=deadline,
             image_urls=json.dumps(payload.imageUrls or []),
