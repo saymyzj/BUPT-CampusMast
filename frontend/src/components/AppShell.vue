@@ -12,7 +12,6 @@
 
         <nav class="nav-links">
           <RouterLink to="/tasks" class="nav-link nav-home">首页</RouterLink>
-          <RouterLink to="/tasks" class="nav-link nav-hall">任务大厅</RouterLink>
           <RouterLink to="/tasks/new" class="nav-link">发布任务</RouterLink>
           <RouterLink to="/map" class="nav-link">地图</RouterLink>
           <RouterLink to="/notifications" class="nav-link nav-message">消息<span>3</span></RouterLink>
@@ -22,7 +21,7 @@
         <div class="top-actions">
           <form class="global-search" role="search" @submit.prevent="runGlobalSearch">
             <input v-model.trim="globalKeyword" type="search" placeholder="搜索任务关键词" />
-            <button type="submit" aria-label="搜索任务关键词">⌕</button>
+            <button type="submit" aria-label="搜索任务关键词"><AppIcon name="search" /></button>
           </form>
 
           <div v-if="authStore.isAuthenticated" ref="userMenuRef" class="user-menu-wrap">
@@ -54,6 +53,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import AppIcon from "@/components/ui/AppIcon.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -208,10 +208,12 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   font-size: 14px;
   font-weight: 800;
   white-space: nowrap;
+  transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
 
 .nav-link:hover {
   color: #627653;
+  transform: translateY(-1px);
 }
 
 .nav-home.router-link-active::after {
@@ -226,13 +228,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   transform: translateX(-50%);
 }
 
-.nav-hall.router-link-active {
-  min-width: 87px;
-  background: #f0efeb;
-}
-
-.nav-message span,
-.bell span {
+.nav-message span {
   position: absolute;
   width: 17px;
   height: 17px;
@@ -268,6 +264,12 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   border-radius: 9px;
   background: #fff;
   box-shadow: 0 9px 20px rgba(60, 54, 45, 0.04);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.global-search:focus-within {
+  border-color: rgba(58, 120, 214, 0.38);
+  box-shadow: 0 0 0 4px rgba(58, 120, 214, 0.08), 0 10px 24px rgba(60, 54, 45, 0.05);
 }
 
 .global-search input {
@@ -290,27 +292,14 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   background: transparent;
   color: #8a8d86;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1;
+  transition: color 0.18s ease, transform 0.18s ease;
 }
 
 .global-search button:hover {
-  color: #627653;
-}
-
-.bell {
-  position: relative;
-  width: 27px;
-  height: 31px;
-  color: #333630;
-  text-decoration: none;
-  font-size: 23px;
-  line-height: 31px;
-}
-
-.bell span {
-  right: -8px;
-  top: -7px;
+  color: #3a78d6;
+  transform: scale(1.08);
 }
 
 .user-menu-wrap {
@@ -327,6 +316,11 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
   color: inherit;
   cursor: pointer;
   font: inherit;
+  transition: transform 0.18s ease;
+}
+
+.user-chip:hover {
+  transform: translateY(-1px);
 }
 
 .avatar {
