@@ -17,6 +17,3 @@ class NotificationResponse(BaseModel):
     isRead: bool
     createdAt: str
 
-
-class NotificationUnreadResponse(BaseModel):
-    unreadCount: int

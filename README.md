@@ -323,6 +323,15 @@ main
 请先从“任务状态机 + 钱包事务”开始。
 ```
 
+## 下一步建议
+
+现在最顺的工作顺序是：
+
+1. 你把静态 HTML 原型交给 A
+2. A 直接开始实现 `TaskHallPage`、`CampusMapPage`、`TaskDetailPage`、`ChatPage`
+3. B 直接开始实现 `task_service`、`wallet_service`
+4. 你继续把认证、WebSocket 网关、AI 审核和后台模块补成真实实现
+
 ## 远程仓库
 
 `https://github.com/saymyzj/BUPT-CampusMast`
