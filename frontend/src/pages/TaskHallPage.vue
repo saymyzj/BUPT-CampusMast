@@ -9,19 +9,23 @@
           <button @click="router.push('/map')">查看地图 <AppIcon name="map-pin" /></button>
         </div>
       </div>
-      <div class="hero-photo" aria-label="北邮校园照片"></div>
+      <div class="hero-photo" aria-label="北邮校园照片">
+        <img src="/assets/hero-bupt-gate.jpg" alt="" aria-hidden="true" />
+      </div>
     </section>
 
     <section class="content">
       <main class="task-panel">
         <div class="filters">
-          <select v-model="filters.category" @change="search">
-            <option value="">全部分类</option>
-            <option value="package">代取快递</option>
-            <option value="food">代买餐食</option>
-            <option value="move">搬运重物</option>
-            <option value="other">其他</option>
-          </select>
+          <label class="custom-select">
+            <select v-model="filters.category" @change="search">
+              <option value="">全部分类</option>
+              <option value="package">代取快递</option>
+              <option value="food">代买餐食</option>
+              <option value="move">搬运重物</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
 
           <label class="inline-search">
             <input v-model.trim="filters.keyword" type="search" placeholder="搜索任务关键词" @keyup.enter="search" />
@@ -32,12 +36,14 @@
 
           <input v-model.number="filters.rewardMax" class="reward-input" type="number" min="0" inputmode="decimal" placeholder="最高赏金" />
 
-          <select v-model="filters.sortBy" @change="search">
-            <option value="distanceAsc">距离排序</option>
-            <option value="newest">最新发布</option>
-            <option value="rewardDesc">赏金最高</option>
-            <option value="deadlineAsc">即将截止</option>
-          </select>
+          <label class="custom-select">
+            <select v-model="filters.sortBy" @change="search">
+              <option value="distanceAsc">距离排序</option>
+              <option value="newest">最新发布</option>
+              <option value="rewardDesc">赏金最高</option>
+              <option value="deadlineAsc">即将截止</option>
+            </select>
+          </label>
 
           <div class="toggle">
             <button class="on" type="button">列表</button>
@@ -136,18 +142,18 @@
 
         <section class="card hot-card">
           <div class="card-head">
-            <h2>热门楼宇</h2>
+            <h2>热门地点</h2>
             <RouterLink to="/map">查看更多 <AppIcon name="arrow-right" /></RouterLink>
           </div>
-          <ol v-if="hotBuildings.length > 0" class="hot-list">
-            <li v-for="(building, index) in hotBuildings" :key="building.name">
+          <ol v-if="hotLocations.length > 0" class="hot-list">
+            <li v-for="(building, index) in hotLocations" :key="building.name">
               <span>{{ index + 1 }}</span>
               <strong>{{ building.name }}</strong>
               <small>{{ building.count }} 个任务</small>
               <b :style="{ width: `${Math.max(23, Math.min(41, building.count * 3.4))}px` }"></b>
             </li>
           </ol>
-          <div v-else class="hot-empty">暂无楼宇任务数据</div>
+          <div v-else class="hot-empty">暂无地点任务数据</div>
         </section>
       </aside>
     </section>
@@ -258,12 +264,16 @@ const displayCompletedCount = computed(() => {
   return 0;
 });
 
-const hotBuildings = computed(() => {
+const hotLocations = computed(() => {
   const counts = new Map<string, number>();
   const source = statsTasks.value.length ? statsTasks.value : tasks.value;
-  for (const task of source) counts.set(task.buildingCode, (counts.get(task.buildingCode) || 0) + 1);
+  for (const task of source) {
+    const name = task.locationDetail?.trim();
+    if (!name) continue;
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
   const rows = Array.from(counts.entries())
-    .map(([code, count]) => ({ name: bName(code), count }))
+    .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
   return rows;
@@ -400,10 +410,9 @@ onMounted(async () => {
   --reward-orange: #df8a2f;
   --surface: #fffdfa;
   --line: #e7e1d6;
-  min-height: calc(100vh - 62px);
-  padding-top: 14px;
-  padding-bottom: 28px;
-  overflow-x: hidden;
+  min-height: calc(100dvh - 62px);
+  padding: clamp(12px, 1.4vw, 18px) clamp(14px, 2.2vw, 34px) clamp(22px, 2.4vw, 34px);
+  overflow-x: clip;
   background:
     linear-gradient(180deg, rgba(245, 249, 255, 0.72), rgba(255, 252, 246, 0.95) 270px),
     #fbfaf7;
@@ -412,10 +421,13 @@ onMounted(async () => {
 }
 
 .hero {
-  position: relative;
-  width: min(1337px, calc(100vw - 34px));
-  min-height: 223px;
+  width: min(1337px, 100%);
+  min-height: clamp(190px, 19vw, 252px);
   margin: 0 auto 12px;
+  display: grid;
+  grid-template-columns: minmax(300px, 0.86fr) minmax(0, 1.14fr);
+  grid-auto-rows: minmax(clamp(190px, 19vw, 252px), auto);
+  align-items: stretch;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -424,15 +436,18 @@ onMounted(async () => {
 }
 
 .hero-copy {
-  position: absolute;
-  left: 47px;
-  top: 33px;
-  z-index: 3;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  padding: clamp(24px, 4vw, 47px);
 }
 
 .hero h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: clamp(24px, 2.3vw, 32px);
   line-height: 1.42;
   font-weight: 950;
 }
@@ -453,12 +468,13 @@ onMounted(async () => {
 
 .hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 13px;
 }
 
 .hero-actions button {
-  min-width: 146px;
-  height: 39px;
+  min-width: min(146px, 100%);
+  min-height: 39px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -489,36 +505,44 @@ onMounted(async () => {
 }
 
 .hero-photo {
-  position: absolute;
-  left: 420px;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: auto;
-  height: auto;
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  min-width: 0;
+  min-height: clamp(190px, 19vw, 252px);
+  height: 100%;
+  display: grid;
   overflow: hidden;
   border-radius: 0 16px 16px 0;
-  background-image: url("/assets/hero-bupt-gate.jpg");
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center 46%;
+}
+
+.hero-photo img {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  display: block;
+  object-fit: cover;
+  object-position: 58% 46%;
 }
 
 .hero-photo::before {
   content: "";
+  grid-area: 1 / 1;
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 280px;
+  z-index: 1;
+  width: min(42%, 280px);
   background: linear-gradient(90deg, #fffdfa 0%, rgba(255, 253, 250, 0.9) 28%, rgba(255, 253, 250, 0.46) 58%, rgba(255, 253, 250, 0) 100%);
 }
 
 .content {
-  width: min(1337px, calc(100vw - 34px));
+  width: min(1337px, 100%);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 357px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.36fr);
   gap: 15px;
   align-items: start;
 }
@@ -533,7 +557,8 @@ onMounted(async () => {
 
 .task-panel {
   position: relative;
-  height: 470px;
+  min-height: clamp(500px, calc(100dvh - 220px), 680px);
+  height: clamp(500px, calc(100dvh - 220px), 680px);
   display: flex;
   flex-direction: column;
   padding: 14px 17px 18px;
@@ -543,17 +568,17 @@ onMounted(async () => {
 .filters {
   display: grid;
   grid-template-columns:
-    minmax(124px, 0.9fr)
-    minmax(190px, 1.3fr)
-    minmax(116px, 0.82fr)
-    minmax(116px, 0.88fr)
-    minmax(116px, 0.88fr)
-    minmax(148px, 0.9fr);
-  gap: 14px;
+    minmax(120px, 0.85fr)
+    minmax(180px, 1.35fr)
+    minmax(72px, 0.45fr)
+    minmax(72px, 0.45fr)
+    minmax(120px, 0.85fr)
+    minmax(132px, 0.75fr);
+  gap: clamp(8px, 1.1vw, 14px);
   align-items: center;
 }
 
-.filters select,
+.custom-select,
 .reward-input,
 .inline-search {
   height: 37px;
@@ -564,22 +589,43 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.filters select {
+.custom-select {
+  position: relative;
   min-width: 0;
-  padding: 0 32px 0 12px;
-  appearance: none;
-  background-image:
-    linear-gradient(45deg, transparent 50%, #7f857b 50%),
-    linear-gradient(135deg, #7f857b 50%, transparent 50%);
-  background-position:
-    calc(100% - 17px) 15px,
-    calc(100% - 12px) 15px;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-  cursor: pointer;
+  display: grid;
+  align-items: center;
+  overflow: hidden;
 }
 
-.filters select:focus,
+.custom-select::after {
+  content: "";
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.8px solid #737a6e;
+  border-bottom: 1.8px solid #737a6e;
+  pointer-events: none;
+  transform: translateY(-65%) rotate(45deg);
+}
+
+.custom-select select {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 32px 0 12px;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  outline: 0;
+}
+
+.custom-select:focus-within,
 .reward-input:focus,
 .inline-search:focus-within,
 .toggle:focus-within {
@@ -699,7 +745,7 @@ onMounted(async () => {
 .tasks {
   margin-top: 15px;
   flex: 1;
-  min-height: 0;
+  min-height: 220px;
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid #efebe3;
@@ -744,7 +790,7 @@ onMounted(async () => {
 .task {
   min-height: 90px;
   display: grid;
-  grid-template-columns: 52px minmax(220px, 1.45fr) minmax(70px, 0.38fr) minmax(180px, 0.9fr) minmax(90px, 0.52fr);
+  grid-template-columns: auto minmax(180px, 1.4fr) minmax(70px, 0.35fr) minmax(150px, 0.8fr) minmax(82px, 0.45fr);
   align-items: center;
   gap: clamp(12px, 1.5vw, 18px);
   padding: 14px 15px;
@@ -812,9 +858,12 @@ onMounted(async () => {
 }
 
 .place span {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .place .app-icon {
@@ -927,11 +976,10 @@ onMounted(async () => {
 
 .features {
   margin-top: 12px;
-  flex: 0 0 64px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-  padding: 0 18px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: clamp(10px, 1.4vw, 18px);
+  padding: 12px 18px;
   border: 1px solid #eee9df;
   border-radius: 13px;
   background: var(--surface);
@@ -985,12 +1033,12 @@ onMounted(async () => {
 }
 
 .overview-card {
-  height: 269px;
+  min-height: 0;
   padding: 16px 19px 21px;
 }
 
 .card-head {
-  height: 21px;
+  min-height: 21px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1019,7 +1067,7 @@ onMounted(async () => {
 
 .overview {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
 
@@ -1057,7 +1105,7 @@ onMounted(async () => {
 }
 
 .hot-card {
-  height: 193px;
+  min-height: 0;
   padding: 18px 19px;
 }
 
@@ -1110,7 +1158,7 @@ onMounted(async () => {
 }
 
 .hot-empty {
-  height: 120px;
+  min-height: 120px;
   display: grid;
   place-items: center;
   color: #858781;
@@ -1122,17 +1170,8 @@ onMounted(async () => {
     overflow: visible;
   }
 
-  .hero,
-  .content {
-    width: calc(100vw - 32px);
-  }
-
   .content {
     grid-template-columns: 1fr;
-  }
-
-  .filters {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .side {
@@ -1141,23 +1180,30 @@ onMounted(async () => {
 }
 
 @media (max-width: 900px) {
+  .filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .hero {
-    min-height: 360px;
+    grid-template-columns: 1fr;
   }
 
   .hero-copy {
-    left: 28px;
-    right: 28px;
+    grid-column: 1;
+    grid-row: 1;
+    padding: 28px;
   }
 
   .hero-photo {
-    left: 28px;
-    right: 28px;
-    top: 178px;
-    bottom: auto;
-    width: auto;
-    height: 160px;
-    border-radius: 15px;
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 180px;
+    border-radius: 0 0 15px 15px;
+  }
+
+  .hero-photo::before {
+    width: 100%;
+    background: linear-gradient(180deg, rgba(255, 253, 250, 0.68), rgba(255, 253, 250, 0));
   }
 
   .task {
@@ -1181,10 +1227,6 @@ onMounted(async () => {
   .side,
   .overview {
     grid-template-columns: 1fr;
-  }
-
-  .hero-actions {
-    flex-wrap: wrap;
   }
 
   .task {

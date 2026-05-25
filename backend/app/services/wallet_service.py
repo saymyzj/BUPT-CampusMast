@@ -157,7 +157,7 @@ def top_up(db: Session, user_id: str, amount: str | Decimal) -> Wallet:
     try:
         wallet = get_or_create_wallet(db, user_id)
         wallet.available = money(Decimal(str(wallet.available)) + value)
-        _record_transaction(db, wallet, TransactionType.TOP_UP, value, description="Wallet top-up")
+        _record_transaction(db, wallet, TransactionType.TOP_UP, value, description="钱包充值")
         db.commit()
         db.refresh(wallet)
         return wallet
@@ -174,7 +174,7 @@ def withdraw(db: Session, user_id: str, amount: str | Decimal) -> Wallet:
         if money(wallet.available) < value:
             raise WalletError("INSUFFICIENT_AVAILABLE_BALANCE", "Insufficient available balance")
         wallet.available = money(Decimal(str(wallet.available)) - value)
-        _record_transaction(db, wallet, TransactionType.WITHDRAW, value, description="Wallet withdrawal")
+        _record_transaction(db, wallet, TransactionType.WITHDRAW, value, description="钱包提现")
         db.commit()
         db.refresh(wallet)
         return wallet
@@ -189,7 +189,7 @@ def freeze_funds(
     amount: str | Decimal,
     *,
     related_task_id: str | None = None,
-    description: str = "Task reward frozen",
+    description: str = "任务赏金冻结",
 ) -> Wallet:
     value = money(amount)
     _ensure_positive(value)
@@ -215,7 +215,7 @@ def unfreeze_funds(
     amount: str | Decimal,
     *,
     related_task_id: str | None = None,
-    description: str = "Task reward unfrozen",
+    description: str = "任务赏金解冻",
 ) -> Wallet:
     value = money(amount)
     _ensure_positive(value)
@@ -260,7 +260,7 @@ def settle_reward(
             value,
             related_task_id=related_task_id,
             settlement_key=related_task_id,
-            description="Task reward settled out to helper",
+            description="任务赏金结算给接单人",
         )
 
         helper_wallet.available = money(Decimal(str(helper_wallet.available)) + value)
@@ -270,7 +270,7 @@ def settle_reward(
             TransactionType.SETTLE_IN,
             value,
             related_task_id=related_task_id,
-            description="Task reward settled in from requester",
+            description="收到发布者任务赏金",
         )
         return requester_wallet, helper_wallet
     except IntegrityError as exc:
@@ -319,8 +319,8 @@ def settle_split(
             related_task_id=related_task_id,
             settlement_key=related_task_id,
             description=(
-                f"Task reward split: frozen consumed {money_text(value)}, "
-                f"requester refund {money_text(requester_share)}"
+                f"任务争议分账：扣除冻结赏金 {money_text(value)}，"
+                f"发布者退回 {money_text(requester_share)}"
             ),
         )
 
@@ -332,7 +332,7 @@ def settle_split(
                 TransactionType.SETTLE_SPLIT,
                 helper_share,
                 related_task_id=related_task_id,
-                description=f"Task reward split: helper payout {money_text(helper_share)}",
+                description=f"任务争议分账：接单人获得 {money_text(helper_share)}",
             )
         return requester_wallet, helper_wallet
     except IntegrityError as exc:

@@ -539,8 +539,8 @@ async function handleSubmit() {
 
 <style scoped>
 .post-page {
-  min-height: calc(100vh - 62px);
-  padding: 18px 51px 32px;
+  min-height: calc(100dvh - 62px);
+  padding: clamp(16px, 2vw, 28px) clamp(16px, 3.4vw, 51px) 32px;
   background: #fbfaf7;
   color: #242622;
 }
@@ -549,8 +549,9 @@ async function handleSubmit() {
   width: min(1440px, 100%);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 410px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.42fr);
+  gap: clamp(14px, 1.5vw, 20px);
+  align-items: start;
 }
 
 .form-card,
@@ -563,7 +564,7 @@ async function handleSubmit() {
 
 .form-card {
   min-width: 0;
-  padding: 25px 27px 16px;
+  padding: clamp(18px, 2vw, 27px);
 }
 
 .page-head {
@@ -590,7 +591,7 @@ async function handleSubmit() {
 
 .field {
   display: grid;
-  grid-template-columns: 102px minmax(0, 1fr);
+  grid-template-columns: minmax(86px, 0.12fr) minmax(0, 1fr);
   align-items: start;
   gap: 14px;
   color: #292b27;
@@ -679,8 +680,8 @@ async function handleSubmit() {
 }
 
 .category-btn {
-  height: 37px;
-  min-width: 106px;
+  min-height: 37px;
+  min-width: min(106px, 100%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -710,12 +711,12 @@ async function handleSubmit() {
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 14px 24px;
 }
 
 .form-grid .field {
-  grid-template-columns: 102px minmax(0, 1fr);
+  grid-template-columns: minmax(86px, 0.22fr) minmax(0, 1fr);
 }
 
 .hint {
@@ -837,12 +838,13 @@ async function handleSubmit() {
 
 .upload-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(132px, 100%), 1fr));
+  gap: 10px;
 }
 
 .upload-box {
-  height: 70px;
+  max-height: 88px;
+  aspect-ratio: 1.5 / 1;
   border: 1px solid #e7e4dc;
   border-radius: 8px;
   background: #fff;
@@ -859,12 +861,12 @@ async function handleSubmit() {
 }
 
 .upload-box.primary .app-icon {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .upload-box.primary strong {
   color: #292b27;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .upload-box.primary span {
@@ -941,7 +943,7 @@ async function handleSubmit() {
 
 .info-row {
   display: grid;
-  grid-template-columns: 1.08fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 18px;
   margin-top: 10px;
 }
@@ -987,7 +989,7 @@ async function handleSubmit() {
 
 .wallet-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr 72px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(92px, auto);
   gap: 10px;
   align-items: end;
 }
@@ -1010,7 +1012,9 @@ async function handleSubmit() {
 }
 
 .wallet-stats button {
-  height: 34px;
+  min-width: 92px;
+  height: 38px;
+  padding: 0 14px;
   border: 1px solid #8fa47d;
   border-radius: 8px;
   background: #fff;
@@ -1019,11 +1023,12 @@ async function handleSubmit() {
   font: inherit;
   font-size: 13px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .audit-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
   gap: 14px;
   margin-top: 18px;
 }
@@ -1077,12 +1082,14 @@ async function handleSubmit() {
 }
 
 .form-footer p {
+  min-width: 0;
   margin: 0;
   color: #7d8079;
   font-size: 12px;
 }
 
 .form-footer div {
+  flex: 0 0 auto;
   display: flex;
   gap: 16px;
 }
@@ -1253,6 +1260,10 @@ async function handleSubmit() {
 
   .post-layout {
     grid-template-columns: 1fr;
+  }
+
+  .side-panel {
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   }
 }
 

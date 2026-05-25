@@ -23,6 +23,11 @@ class TokenRefreshRequest(BaseModel):
     refreshToken: str
 
 
+class PasswordResetRequest(BaseModel):
+    studentEmail: str
+    newPassword: str
+
+
 class UserUpdateRequest(BaseModel):
     nickname: str | None = None
     phone: str | None = None
@@ -35,9 +40,11 @@ class UserResponse(BaseModel):
     studentEmail: str
     nickname: str
     role: str
+    phone: str | None = None
     requesterCreditScore: float
     helperCreditScore: float
     overallCreditScore: float
+    isActive: bool = True
     avatarUrl: str | None = None
     defaultBuildingCode: str | None = None
 

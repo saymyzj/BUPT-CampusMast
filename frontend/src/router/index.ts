@@ -23,7 +23,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/pages/CampusMapPage.vue"),
     meta: { requiresAuth: true },
   },
-  { path: "/admin", component: () => import("@/pages/AdminDashboardPage.vue"), meta: { requiresAuth: true } },
+  { path: "/admin", component: () => import("@/pages/AdminDashboardPage.vue"), meta: { layout: "admin", requiresAuth: true, adminOnly: true } },
 ];
 
 const router = createRouter({
@@ -37,28 +37,39 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
 
-  // 如果不需要认证，直接通过
-  if (to.meta.requiresAuth === false) {
-    next();
-    return;
-  }
-
-  // 检查是否已认证
-  if (authStore.isAuthenticated) {
-    next();
-    return;
-  }
-
   // 检查是否有令牌（但未初始化用户信息）
   if (authStore.accessToken && !authStore.currentUser) {
     try {
       await authStore.fetchCurrentUser();
-      next();
-      return;
     } catch (err) {
       // 令牌已过期或无效，清空并重定向到登录
       authStore.clearTokens();
     }
+  }
+
+  // 如果不需要认证，已登录用户按角色进入默认页面
+  if (to.meta.requiresAuth === false) {
+    if (authStore.isAuthenticated) {
+      next(authStore.currentUser?.role === "ADMIN" ? "/admin" : "/tasks");
+      return;
+    }
+    next();
+    return;
+  }
+
+  // 检查是否已认证，并按角色限制可访问页面
+  if (authStore.isAuthenticated) {
+    const isAdmin = authStore.currentUser?.role === "ADMIN";
+    if (isAdmin && to.path !== "/admin") {
+      next("/admin");
+      return;
+    }
+    if (!isAdmin && to.meta.adminOnly) {
+      next("/tasks");
+      return;
+    }
+    next();
+    return;
   }
 
   // 未认证且路由需要认证，重定向到登录

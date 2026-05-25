@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from app.dependencies.auth import get_current_user
 from app.dependencies.database import get_db
 from app.models.user import User
-from app.schemas.auth import AuthLoginRequest, AuthRegisterRequest, TokenRefreshRequest, UserUpdateRequest
-from app.services.auth_service import get_current_user_payload, login_user, refresh_access_token, register_user, update_current_user
+from app.schemas.auth import AuthLoginRequest, AuthRegisterRequest, PasswordResetRequest, TokenRefreshRequest, UserUpdateRequest
+from app.services.auth_service import get_current_user_payload, login_user, refresh_access_token, register_user, reset_password_directly, update_current_user
 from app.utils.response import success
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -31,6 +31,11 @@ def login(payload: AuthLoginRequest, db: Session = Depends(get_db)) -> dict:
 @router.post("/refresh")
 def refresh_token(payload: TokenRefreshRequest, db: Session = Depends(get_db)) -> dict:
     return success(refresh_access_token(db, payload.refreshToken))
+
+
+@router.post("/password/reset")
+def reset_password(payload: PasswordResetRequest, db: Session = Depends(get_db)) -> dict:
+    return success(reset_password_directly(db, payload))
 
 
 @router.get("/me")

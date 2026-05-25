@@ -8,7 +8,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("campusmast.accessToken");
+  const token = sessionStorage.getItem("campusmast.accessToken");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const refreshToken = localStorage.getItem("campusmast.refreshToken");
+    const refreshToken = sessionStorage.getItem("campusmast.refreshToken");
     if (!refreshToken) {
       return Promise.reject(error);
     }
@@ -46,7 +46,7 @@ apiClient.interceptors.response.use(
       try {
         const { data } = await axios.post(`${baseURL}/api/auth/refresh`, { refreshToken });
         const newAccessToken = data.data.accessToken;
-        localStorage.setItem("campusmast.accessToken", newAccessToken);
+        sessionStorage.setItem("campusmast.accessToken", newAccessToken);
         onRefreshed(newAccessToken);
         isRefreshing = false;
 
@@ -56,6 +56,9 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         isRefreshing = false;
         refreshSubscribers = [];
+        sessionStorage.removeItem("campusmast.accessToken");
+        sessionStorage.removeItem("campusmast.refreshToken");
+        sessionStorage.removeItem("campusmast.currentUser");
         localStorage.removeItem("campusmast.accessToken");
         localStorage.removeItem("campusmast.refreshToken");
         localStorage.removeItem("campusmast.currentUser");

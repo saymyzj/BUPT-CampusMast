@@ -38,6 +38,11 @@ export async function refreshToken(payload: TokenRefreshRequest): Promise<{ acce
   return response.data.data;
 }
 
+export async function resetPassword(payload: { studentEmail: string; newPassword: string }): Promise<{ message: string }> {
+  const response = await apiClient.post("/api/auth/password/reset", payload);
+  return response.data.data;
+}
+
 /**
  * 获取当前用户资料
  */

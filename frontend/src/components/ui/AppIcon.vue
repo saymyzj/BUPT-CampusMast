@@ -107,6 +107,80 @@
       <path d="M3.5 12s3-5.5 8.5-5.5 8.5 5.5 8.5 5.5-3 5.5-8.5 5.5S3.5 12 3.5 12Z" />
       <circle cx="12" cy="12" r="2.4" />
     </template>
+    <template v-else-if="name === 'user'">
+      <circle cx="12" cy="8" r="3.8" />
+      <path d="M4.8 20c.8-4 3.4-6 7.2-6s6.4 2 7.2 6" />
+    </template>
+    <template v-else-if="name === 'users'">
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.8 19c.7-3.2 2.5-4.8 5.2-4.8 2.8 0 4.5 1.6 5.2 4.8" />
+      <path d="M15.4 11.2a2.8 2.8 0 1 0-.4-5.4M15.8 14.4c2.3.3 3.8 1.8 4.4 4.6" />
+    </template>
+    <template v-else-if="name === 'list'">
+      <path d="M8 6h12M8 12h12M8 18h12" />
+      <path d="M4 6h.01M4 12h.01M4 18h.01" />
+    </template>
+    <template v-else-if="name === 'clipboard'">
+      <path d="M9 4.5h6l1 2h2A1.5 1.5 0 0 1 19.5 8v10A1.5 1.5 0 0 1 18 19.5H6A1.5 1.5 0 0 1 4.5 18V8A1.5 1.5 0 0 1 6 6.5h2l1-2Z" />
+      <path d="M9 4.5h6v3H9v-3ZM8 12h8M8 15h5" />
+    </template>
+    <template v-else-if="name === 'chart'">
+      <path d="M4.5 19.5h15" />
+      <path d="M7 16v-5M12 16V6M17 16v-8" />
+    </template>
+    <template v-else-if="name === 'settings'">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19 12a7.8 7.8 0 0 0-.1-1.1l2-1.5-2-3.5-2.4 1a8 8 0 0 0-1.9-1.1L14.3 3h-4.6l-.4 2.8a8 8 0 0 0-1.9 1.1l-2.4-1-2 3.5 2 1.5A7.8 7.8 0 0 0 5 12c0 .4 0 .8.1 1.1l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 1.9 1.1l.4 2.8h4.6l.4-2.8a8 8 0 0 0 1.9-1.1l2.4 1 2-3.5-2-1.5c.1-.3.1-.7.1-1.1Z" />
+    </template>
+    <template v-else-if="name === 'edit'">
+      <path d="M4 19.5h4l10.8-10.8a2.2 2.2 0 0 0-3.1-3.1L4.9 16.4 4 19.5Z" />
+      <path d="m14.5 6.8 2.7 2.7" />
+    </template>
+    <template v-else-if="name === 'menu'">
+      <path d="M5 7h14M5 12h14M5 17h14" />
+    </template>
+    <template v-else-if="name === 'help'">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.7 9.4a2.5 2.5 0 1 1 4.1 1.9c-.9.7-1.6 1.2-1.6 2.4M12 17h.01" />
+    </template>
+    <template v-else-if="name === 'logout'">
+      <path d="M10 5H6.8A1.8 1.8 0 0 0 5 6.8v10.4A1.8 1.8 0 0 0 6.8 19H10" />
+      <path d="M14 8l4 4-4 4M18 12H9" />
+    </template>
+    <template v-else-if="name === 'lock'">
+      <path d="M7 10V8a5 5 0 0 1 10 0v2" />
+      <path d="M6.5 10h11A1.5 1.5 0 0 1 19 11.5V19H5v-7.5A1.5 1.5 0 0 1 6.5 10Z" />
+    </template>
+    <template v-else-if="name === 'building'">
+      <path d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4h11A1.5 1.5 0 0 1 19 5.5V20" />
+      <path d="M8 8h2M14 8h2M8 12h2M14 12h2M8 16h2M14 16h2M3.5 20h17" />
+    </template>
+    <template v-else-if="name === 'yen'">
+      <path d="m7 4 5 7 5-7M8 12h8M8 16h8M12 11v8" />
+    </template>
+    <template v-else-if="name === 'trend'">
+      <path d="M4 17 9 12l3 3 7-8" />
+      <path d="M15 7h4v4" />
+    </template>
+    <template v-else-if="name === 'document'">
+      <path d="M6.5 3.5h8L19 8v12.5H6.5V3.5Z" />
+      <path d="M14.5 3.5V8H19M9 12h6M9 15.5h6" />
+    </template>
+    <template v-else-if="name === 'phone'">
+      <path d="M8.5 4.5 6 6.8c.5 6 4.2 9.8 10.2 10.9l2.4-2.6-3.2-3.1-1.8 1.7c-2.2-1-3.8-2.6-4.8-4.8l1.7-1.8-3-2.6Z" />
+    </template>
+    <template v-else-if="name === 'layers'">
+      <path d="m12 3.8 8 4.2-8 4.2L4 8l8-4.2Z" />
+      <path d="m4 12 8 4.2 8-4.2M4 16l8 4.2 8-4.2" />
+    </template>
+    <template v-else-if="name === 'download'">
+      <path d="M12 4v10M8 10l4 4 4-4" />
+      <path d="M5 17v2.5h14V17" />
+    </template>
+    <template v-else-if="name === 'clock'">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3.2 2" />
+    </template>
   </svg>
 </template>
 

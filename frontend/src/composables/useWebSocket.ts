@@ -11,7 +11,7 @@ export function useWebSocket(path: string) {
 
   function connect() {
     const base = import.meta.env.VITE_WS_BASE_URL ?? "ws://localhost:9000/ws";
-    const token = localStorage.getItem("campusmast.accessToken") ?? "";
+    const token = sessionStorage.getItem("campusmast.accessToken") ?? "";
     socket.value = new WebSocket(`${base}${path}?accessToken=${token}`);
 
     socket.value.onopen = () => {

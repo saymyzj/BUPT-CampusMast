@@ -71,11 +71,6 @@
           </template>
         </div>
 
-        <footer class="conversation-footer">
-          <AppIcon name="bell" />
-          <span>暂无更多会话</span>
-          <RouterLink to="/tasks">去任务大厅</RouterLink>
-        </footer>
       </aside>
 
       <main class="message-panel">
@@ -106,9 +101,6 @@
 
             <div class="header-actions">
               <button type="button" class="task-button" @click="goTaskDetail">查看任务</button>
-              <button type="button" class="icon-button" aria-label="更多操作">
-                <AppIcon name="more" />
-              </button>
             </div>
           </header>
 
@@ -221,7 +213,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { RouterLink, useRoute, useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
   createTaskChatMessage,
   listChatConversations,
@@ -567,11 +559,12 @@ onMounted(async () => {
 
 <style scoped>
 .chat-page {
-  min-height: calc(100vh - 62px);
-  padding: 18px 32px 26px;
+  min-height: calc(100dvh - 62px);
+  padding: clamp(10px, 1.4vw, 14px) clamp(14px, 2.2vw, 32px) clamp(14px, 2vw, 20px);
   background: #fbfaf7;
   color: #22241f;
   font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  overflow-x: clip;
 }
 
 button,
@@ -586,12 +579,12 @@ button {
 
 .chat-shell {
   width: min(1440px, 100%);
-  height: calc(100vh - 106px);
-  min-height: 620px;
+  height: clamp(420px, 90dvh, 720px);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 370px minmax(520px, 1fr) 340px;
-  gap: 14px;
+  grid-template-columns: minmax(300px, 0.3fr) minmax(0, 1fr) minmax(260px, 0.27fr);
+  gap: clamp(10px, 1vw, 14px);
+  align-items: stretch;
 }
 
 .conversation-panel,
@@ -609,7 +602,7 @@ button {
 }
 
 .panel-title-block {
-  padding: 24px 22px 12px;
+  padding: 18px 20px 10px;
 }
 
 .panel-title-block h1,
@@ -631,7 +624,7 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
-  margin: 8px 20px 14px;
+  margin: 6px 18px 10px;
   padding: 4px;
   border: 1px solid #ece9e2;
   border-radius: 7px;
@@ -641,7 +634,7 @@ button {
 .tabs button {
   position: relative;
   min-width: 0;
-  height: 36px;
+  height: 32px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -673,11 +666,11 @@ button {
 }
 
 .search-field {
-  height: 38px;
+  height: 34px;
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 20px 12px;
+  margin: 0 18px 10px;
   padding: 0 13px;
   border: 1px solid #ece9e2;
   border-radius: 7px;
@@ -704,7 +697,7 @@ button {
 }
 
 .conversation-scroll {
-  padding: 0 18px 14px;
+  padding: 0 16px 10px;
 }
 
 .conversation-card {
@@ -715,7 +708,7 @@ button {
   grid-template-columns: 45px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
-  padding: 12px 11px;
+  padding: 10px 10px;
   border: 0;
   border-bottom: 1px solid #efede7;
   border-radius: 7px;
@@ -835,29 +828,6 @@ button {
   font-weight: 900;
 }
 
-.conversation-footer {
-  margin: 10px 20px 20px;
-  min-height: 92px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  border: 1px dashed #dedbd3;
-  border-radius: 7px;
-  color: #8b8d86;
-  font-size: 13px;
-}
-
-.conversation-footer .app-icon {
-  color: #a3a69f;
-}
-
-.conversation-footer a {
-  color: #617650;
-  text-decoration: none;
-  font-weight: 800;
-}
-
 .message-panel {
   background: rgba(255, 255, 255, 0.9);
 }
@@ -892,13 +862,12 @@ button {
 }
 
 .message-header {
-  height: 82px;
-  min-height: 82px;
+  min-height: 68px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, 300px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 0.44fr) auto;
   gap: 16px;
   align-items: center;
-  padding: 0 22px 0 24px;
+  padding: 9px clamp(14px, 1.6vw, 22px) 9px clamp(14px, 1.7vw, 24px);
   border-bottom: 1px solid #ece9e2;
   background: rgba(255, 255, 255, 0.92);
 }
@@ -1001,7 +970,7 @@ button {
 }
 
 .message-scroll {
-  padding: 18px 24px 10px;
+  padding: 12px 22px 8px;
   background:
     linear-gradient(rgba(251, 250, 247, 0.82), rgba(251, 250, 247, 0.82)),
     radial-gradient(circle at 18% 0, rgba(111, 131, 95, 0.08), transparent 34%);
@@ -1010,7 +979,7 @@ button {
 .day-divider {
   display: flex;
   justify-content: center;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .day-divider span {
@@ -1026,7 +995,7 @@ button {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 11px;
 }
 
 .message-row.mine {
@@ -1050,7 +1019,7 @@ button {
 }
 
 .bubble {
-  padding: 11px 14px;
+  padding: 9px 13px;
   border: 1px solid #e9e6df;
   border-radius: 7px;
   background: #fff;
@@ -1081,12 +1050,12 @@ button {
 }
 
 .composer {
-  min-height: 58px;
+  min-height: 50px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-top: 1px solid #ece9e2;
   background: #fff;
 }
@@ -1100,10 +1069,10 @@ button {
 }
 
 .composer textarea {
-  min-height: 37px;
+  min-height: 34px;
   max-height: 86px;
   resize: none;
-  padding: 9px 12px;
+  padding: 7px 11px;
   border: 1px solid #ece9e2;
   border-radius: 7px;
   outline: 0;
@@ -1141,7 +1110,7 @@ button {
 }
 
 .notice-head {
-  min-height: 62px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1175,7 +1144,7 @@ button {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
   gap: 12px;
-  padding: 14px 12px;
+  padding: 11px 12px;
   border: 1px solid #ece9e2;
   border-radius: 7px;
   background: #fff;
@@ -1267,13 +1236,13 @@ button {
 }
 
 .tip-card {
-  min-height: 78px;
+  min-height: 66px;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   margin-top: 10px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid #e2e8d9;
   border-radius: 7px;
   background: #f0f4ea;
@@ -1293,11 +1262,18 @@ button {
 
 @media (max-width: 1220px) {
   .chat-shell {
-    grid-template-columns: 330px minmax(460px, 1fr);
+    grid-template-columns: minmax(280px, 0.36fr) minmax(0, 1fr);
   }
 
   .notification-panel {
-    display: none;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    max-height: 320px;
+  }
+
+  .notice-scroll {
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   }
 }
 
@@ -1307,14 +1283,21 @@ button {
   }
 
   .chat-shell {
-    height: auto;
-    min-height: calc(100vh - 90px);
+    min-height: 0;
     grid-template-columns: 1fr;
+  }
+
+  .conversation-panel {
+    min-height: 300px;
+    max-height: 36dvh;
+  }
+
+  .message-panel {
+    min-height: min(560px, calc(100dvh - 104px));
   }
 
   .message-header {
     grid-template-columns: minmax(0, 1fr);
-    height: auto;
     padding: 14px;
   }
 
@@ -1322,9 +1305,40 @@ button {
     padding: 0;
     border-left: 0;
   }
+}
 
-  .conversation-panel {
-    min-height: 420px;
+@media (max-width: 520px) {
+  .panel-title-block {
+    padding-inline: 16px;
+  }
+
+  .tabs,
+  .search-field {
+    margin-inline: 14px;
+  }
+
+  .conversation-scroll {
+    padding-inline: 12px;
+  }
+
+  .message-scroll {
+    padding-inline: 14px;
+  }
+
+  .bubble-group {
+    max-width: min(100%, 82%);
+  }
+
+  .composer {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .composer-tools {
+    display: none;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
   }
 }
 </style>

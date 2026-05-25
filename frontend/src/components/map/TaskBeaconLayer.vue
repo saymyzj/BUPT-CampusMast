@@ -351,7 +351,7 @@ onUnmounted(() => {
 }
 
 .task-popup-card {
-  width: 286px;
+  width: min(286px, calc(100vw - 48px));
   padding: 16px;
   color: #252723;
   font-family: "Inter", "Noto Sans SC", "Microsoft YaHei", sans-serif;
@@ -408,7 +408,7 @@ onUnmounted(() => {
 .task-popup-meta {
   display: block;
   margin-bottom: 10px;
-  padding-right: 76px;
+  padding-right: clamp(0px, 8vw, 76px);
 }
 
 .task-popup-location {

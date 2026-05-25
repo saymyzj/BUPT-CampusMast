@@ -4,13 +4,15 @@
       <aside class="left-panel">
         <div class="panel-toolbar">
           <strong>附近任务</strong>
-          <select :value="mapStore.activeFilter" @change="changeCategory(($event.target as HTMLSelectElement).value)">
-            <option value="all">全部分类</option>
-            <option value="package">代取快递</option>
-            <option value="food">代买餐食</option>
-            <option value="move">搬运重物</option>
-            <option value="other">其他</option>
-          </select>
+          <label class="custom-select">
+            <select :value="mapStore.activeFilter" @change="changeCategory(($event.target as HTMLSelectElement).value)">
+              <option value="all">全部分类</option>
+              <option value="package">代取快递</option>
+              <option value="food">代买餐食</option>
+              <option value="move">搬运重物</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
         </div>
 
         <p class="panel-hint">当前位置附近 · {{ visiblePanelPins.length }} 个任务</p>
@@ -30,14 +32,11 @@
               </div>
               <div class="nearby-main">
                 <h3>{{ pin.title }}</h3>
-                <div class="nearby-meta">
-                  <span class="task-tag" :class="`tag-${pin.category}`">{{ categoryLabel(pin.category) }}</span>
-                  <span class="location-text"><AppIcon name="location" />{{ locationText(pin) }}</span>
-                </div>
+                <span class="location-text"><AppIcon name="location" /><span>{{ locationText(pin) }}</span></span>
+                <span class="time-text"><AppIcon name="calendar" />{{ pin.timeLeft }}</span>
               </div>
               <div class="nearby-side">
                 <strong>{{ pin.reward }}</strong>
-                <em>{{ pin.timeLeft }}</em>
                 <footer>
                   <span class="mini-avatar">{{ pin.requesterName.charAt(0) }}</span>
                   <span class="user-text">
@@ -144,10 +143,6 @@ const categoryStats = computed(() =>
   })),
 );
 
-function categoryLabel(category: CategoryType) {
-  return labels[category];
-}
-
 function categoryIcon(category: CategoryType) {
   return icons[category];
 }
@@ -195,34 +190,34 @@ onUnmounted(() => {
 
 <style scoped>
 .map-page {
-  min-height: calc(100vh - 62px);
-  padding: 18px 30px 28px;
+  min-height: calc(100dvh - 62px);
+  padding: clamp(14px, 1.8vw, 28px);
   background: #fbfaf7;
   color: #252723;
   font-family: "Inter", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  overflow: hidden;
+  overflow-x: clip;
 }
 
 .map-shell {
   position: relative;
-  height: calc(100vh - 108px);
-  min-height: 640px;
+  min-height: min(760px, calc(100dvh - 104px));
   max-width: 1620px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 400px minmax(0, 1fr);
-  gap: 0;
+  grid-template-columns: minmax(320px, 0.31fr) minmax(0, 1fr);
+  gap: clamp(10px, 1.2vw, 16px);
 }
 
 .left-panel {
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   z-index: 5;
   margin-top: 0;
-  padding: 22px 24px 20px;
+  padding: clamp(16px, 1.5vw, 22px) clamp(16px, 1.5vw, 24px) 20px;
   border: 1px solid #e8e5dc;
-  border-right: 0;
-  border-radius: 18px 0 0 18px;
+  border-radius: 18px;
   background: rgba(255, 253, 250, 0.95);
   box-shadow: 0 18px 44px rgba(65, 57, 46, 0.08);
   overflow: hidden;
@@ -230,7 +225,7 @@ onUnmounted(() => {
 
 .panel-toolbar {
   display: grid;
-  grid-template-columns: minmax(82px, 1fr) 150px;
+  grid-template-columns: minmax(82px, 1fr) minmax(120px, 0.8fr);
   align-items: center;
   gap: 10px;
   margin-bottom: 16px;
@@ -242,17 +237,47 @@ onUnmounted(() => {
   font-weight: 950;
 }
 
-.panel-toolbar select {
+.custom-select {
+  position: relative;
   height: 36px;
   min-width: 0;
-  padding: 0 11px;
+  display: grid;
+  align-items: center;
+  overflow: hidden;
   border: 1px solid #e6e2d9;
   border-radius: 8px;
   background: #fffdfa;
   color: #41433e;
-  font: inherit;
   font-size: 12px;
   box-shadow: 0 6px 14px rgba(70, 63, 52, 0.025);
+}
+
+.custom-select::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.8px solid #73806a;
+  border-bottom: 1.8px solid #73806a;
+  pointer-events: none;
+  transform: translateY(-65%) rotate(45deg);
+}
+
+.custom-select select {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 31px 0 11px;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  outline: 0;
 }
 
 .panel-hint {
@@ -277,7 +302,7 @@ onUnmounted(() => {
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding-right: 4px;
+  padding: 3px 4px 0 0;
 }
 
 .task-scroll::-webkit-scrollbar {
@@ -300,7 +325,7 @@ onUnmounted(() => {
 
 .nearby-card {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 112px;
+  grid-template-columns: auto minmax(0, 1fr) minmax(76px, auto);
   gap: 12px;
   align-items: center;
   min-height: 98px;
@@ -358,45 +383,42 @@ onUnmounted(() => {
   font-weight: 950;
 }
 
-.nearby-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  color: #83857e;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .location-text {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
   gap: 4px;
   min-width: 0;
-  max-width: 110px;
+  overflow: hidden;
+  color: #777a72;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.location-text span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.location-text .app-icon {
+.location-text .app-icon,
+.time-text .app-icon {
   flex: 0 0 auto;
+  margin-top: 1px;
   font-size: 13px;
   color: #8c8f87;
 }
 
-.task-tag {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 6px;
+.time-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: #8f9189;
   font-size: 12px;
-  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
 }
-
-.tag-package { background: #e8f1fb; color: #4778b4; }
-.tag-food { background: #faecd8; color: #c97a25; }
-.tag-move { background: #e8f0e3; color: #6d835f; }
-.tag-other { background: #ebe7f8; color: #7b6cc4; }
 
 .nearby-side footer {
   min-width: 0;
@@ -464,12 +486,6 @@ onUnmounted(() => {
   font-weight: 950;
 }
 
-.nearby-side em {
-  color: #83857e;
-  font-size: 12px;
-  font-style: normal;
-}
-
 .view-all {
   padding: 7px 8px 2px;
   color: #6f835f;
@@ -481,21 +497,29 @@ onUnmounted(() => {
 
 .map-board {
   min-width: 0;
+  min-height: clamp(560px, calc(100dvh - 104px), 820px);
   margin-bottom: 0;
   overflow: hidden;
   border: 1px solid #e8e5dc;
-  border-radius: 0 18px 18px 0;
+  border-radius: 18px;
   box-shadow: 0 18px 44px rgba(65, 57, 46, 0.08);
 }
 
 .right-stack {
   position: absolute;
-  top: 52px;
-  right: 18px;
+  top: clamp(18px, 2.4vw, 52px);
+  right: clamp(12px, 1.6vw, 18px);
+  min-width: 0;
   z-index: 800;
-  width: 222px;
+  width: clamp(190px, 15vw, 222px);
   display: grid;
+  align-content: start;
   gap: 12px;
+  pointer-events: none;
+}
+
+.right-stack > * {
+  pointer-events: auto;
 }
 
 .float-card {
@@ -629,13 +653,61 @@ onUnmounted(() => {
   }
 
   .map-shell {
-    grid-template-columns: 360px minmax(0, 1fr);
-    height: calc(100vh - 104px);
-    min-height: 560px;
+    grid-template-columns: minmax(300px, 0.38fr) minmax(0, 1fr);
+    min-height: min(700px, calc(100dvh - 104px));
   }
 
   .right-stack {
-    display: none;
+    width: clamp(184px, 18vw, 210px);
+  }
+}
+
+@media (max-width: 860px) {
+  .map-shell {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .left-panel {
+    max-height: 42dvh;
+  }
+
+  .map-board {
+    min-height: 56dvh;
+  }
+
+  .right-stack {
+    position: static;
+    width: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .picker-banner {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    flex-wrap: wrap;
+    transform: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .panel-toolbar,
+  .nearby-card {
+    grid-template-columns: 1fr;
+  }
+
+  .nearby-side {
+    justify-items: start;
+  }
+
+  .nearby-side footer {
+    justify-content: flex-start;
+  }
+
+  .user-text {
+    justify-items: start;
+    max-width: 100%;
   }
 }
 </style>

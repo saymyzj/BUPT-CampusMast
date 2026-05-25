@@ -2,7 +2,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="topbar-inner">
-        <RouterLink to="/tasks" class="brand">
+        <RouterLink :to="isAdmin ? '/admin' : '/tasks'" class="brand">
           <span class="brand-mark"><i></i><i></i><i></i></span>
           <span class="brand-copy">
             <strong>CampusMast</strong>
@@ -10,7 +10,7 @@
           </span>
         </RouterLink>
 
-        <nav class="nav-links">
+        <nav v-if="!isAdmin" class="nav-links">
           <RouterLink to="/tasks" class="nav-link nav-home">首页</RouterLink>
           <RouterLink to="/tasks/new" class="nav-link">发布任务</RouterLink>
           <RouterLink to="/map" class="nav-link">地图</RouterLink>
@@ -18,11 +18,11 @@
             消息
             <span v-if="messageBadgeCount">{{ messageBadgeText }}</span>
           </RouterLink>
-          <RouterLink to="/my-tasks" class="nav-link">我的</RouterLink>
+          <RouterLink to="/my-tasks" class="nav-link">我的任务</RouterLink>
         </nav>
 
         <div class="top-actions">
-          <form class="global-search" role="search" @submit.prevent="runGlobalSearch">
+          <form v-if="!isAdmin" class="global-search" role="search" @submit.prevent="runGlobalSearch">
             <input v-model.trim="globalKeyword" type="search" placeholder="搜索任务关键词" />
             <button type="submit" aria-label="搜索任务关键词"><AppIcon name="search" /></button>
           </form>
@@ -32,13 +32,12 @@
               <span class="avatar">{{ userInitial }}</span>
               <span class="user-copy">
                 <strong>你好，{{ authStore.currentUser?.nickname || "邮仔" }}</strong>
-                <small>信用分 {{ authStore.currentUser?.overallCreditScore ?? 828 }}</small>
+                <small>{{ isAdmin ? "管理员后台" : creditScoreText }}</small>
               </span>
             </button>
             <div v-if="showUserMenu" class="dropdown">
-              <RouterLink class="dropdown-item" to="/profile" @click="showUserMenu = false">个人资料</RouterLink>
-              <RouterLink class="dropdown-item" to="/wallet" @click="showUserMenu = false">钱包</RouterLink>
-              <RouterLink class="dropdown-item" to="/admin" @click="showUserMenu = false">运营后台</RouterLink>
+              <RouterLink v-if="!isAdmin" class="dropdown-item" to="/profile" @click="showUserMenu = false">个人资料</RouterLink>
+              <RouterLink v-if="!isAdmin" class="dropdown-item" to="/wallet" @click="showUserMenu = false">钱包</RouterLink>
               <button type="button" class="dropdown-item danger" @click="handleLogout">退出登录</button>
             </div>
           </div>
@@ -68,6 +67,11 @@ const userMenuRef = ref<HTMLElement | null>(null);
 const globalKeyword = ref("");
 
 const userInitial = computed(() => authStore.currentUser?.nickname?.charAt(0) || "邮");
+const isAdmin = computed(() => authStore.currentUser?.role === "ADMIN");
+const creditScoreText = computed(() => {
+  const score = authStore.currentUser?.overallCreditScore;
+  return typeof score === "number" ? `信用分 ${score}` : "信用分 --";
+});
 const messageBadgeCount = computed(() => notificationStore.totalUnreadCount);
 const messageBadgeText = computed(() => (messageBadgeCount.value > 99 ? "99+" : String(messageBadgeCount.value)));
 
@@ -111,7 +115,10 @@ watch(
 onMounted(() => {
   globalKeyword.value = routeKeyword();
   document.addEventListener("click", handleDocumentClick);
-  if (authStore.isAuthenticated) void notificationStore.refreshUnreadCounts();
+  if (authStore.isAuthenticated) {
+    void authStore.fetchCurrentUser().catch(() => undefined);
+    void notificationStore.refreshUnreadCounts();
+  }
 });
 onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick));
 </script>
@@ -127,8 +134,8 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 100;
-  height: 62px;
+  z-index: 10000;
+  min-height: 62px;
   background: rgba(251, 250, 247, 0.94);
   backdrop-filter: blur(14px);
 }
@@ -146,15 +153,17 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 
 .topbar-inner {
   width: min(1440px, 100%);
-  height: 100%;
+  min-height: 62px;
   margin: 0 auto;
   display: flex;
   align-items: center;
-  padding: 0 51px;
+  gap: clamp(14px, 2vw, 34px);
+  padding-inline: clamp(16px, 3.4vw, 51px);
 }
 
 .brand {
-  width: 240px;
+  min-width: 0;
+  flex: 0 1 240px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -188,26 +197,36 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 .brand-mark i:nth-child(3) { top: 18px; opacity: 0.76; }
 
 .brand-copy {
+  min-width: 0;
   display: grid;
   line-height: 1.12;
 }
 
 .brand-copy strong {
+  overflow: hidden;
   font-size: 17px;
   font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-copy small {
+  overflow: hidden;
   margin-top: 3px;
   color: #858781;
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-links {
+  min-width: 0;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
-  gap: 28px;
-  margin-left: 62px;
+  justify-content: center;
+  gap: clamp(10px, 2.1vw, 28px);
+  margin-left: 0;
 }
 
 .nav-link {
@@ -263,13 +282,17 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 
 .top-actions {
   margin-left: auto;
+  min-width: 0;
+  flex: 0 1 430px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: flex-end;
+  gap: clamp(10px, 1.5vw, 20px);
 }
 
 .global-search {
-  width: 257px;
+  width: clamp(180px, 18vw, 257px);
+  min-width: 0;
   height: 34px;
   display: flex;
   align-items: center;
@@ -319,6 +342,7 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 
 .user-menu-wrap {
   position: relative;
+  z-index: 10001;
 }
 
 .user-chip {
@@ -352,27 +376,35 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 }
 
 .user-copy {
-  width: 93px;
+  width: clamp(72px, 8vw, 93px);
+  min-width: 0;
   display: grid;
   line-height: 1.12;
   text-align: left;
 }
 
 .user-copy strong {
+  overflow: hidden;
   font-size: 12px;
   font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-copy small {
+  overflow: hidden;
   margin-top: 4px;
   color: #858781;
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dropdown {
   position: absolute;
   right: 0;
   top: 42px;
+  z-index: 10002;
   width: 178px;
   padding: 8px;
   border: 1px solid #ebe8df;
@@ -405,20 +437,63 @@ onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick)
 }
 
 .shell-main {
-  min-height: calc(100vh - 62px);
+  min-height: calc(100dvh - 62px);
+}
+
+@media (max-width: 1280px) {
+  .brand {
+    flex-basis: 190px;
+  }
+
+  .top-actions {
+    flex-basis: 320px;
+  }
 }
 
 @media (max-width: 1180px) {
   .topbar-inner {
-    padding: 0 24px;
+    padding-inline: 24px;
   }
 
   .nav-links {
     gap: 14px;
-    margin-left: 22px;
+  }
+
+  .global-search {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar-inner {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding-block: 10px;
+  }
+
+  .brand {
+    flex: 1 1 auto;
+  }
+
+  .nav-links {
+    order: 3;
+    flex: 1 1 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none;
   }
 
   .top-actions {
+    flex: 0 0 auto;
+    margin-left: 0;
+  }
+
+  .user-copy {
     display: none;
   }
 }

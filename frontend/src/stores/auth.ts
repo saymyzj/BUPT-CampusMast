@@ -2,8 +2,20 @@ import { defineStore } from "pinia";
 import * as authApi from "@/api/modules/auth";
 import type { User, AuthRegisterRequest, AuthLoginRequest } from "@/types/api";
 
+const TOKEN_KEYS = {
+  access: "campusmast.accessToken",
+  refresh: "campusmast.refreshToken",
+  user: "campusmast.currentUser",
+};
+
+function clearLegacyLocalAuth() {
+  localStorage.removeItem(TOKEN_KEYS.access);
+  localStorage.removeItem(TOKEN_KEYS.refresh);
+  localStorage.removeItem(TOKEN_KEYS.user);
+}
+
 function readPersistedUser(): User | null {
-  const raw = localStorage.getItem("campusmast.currentUser");
+  const raw = sessionStorage.getItem(TOKEN_KEYS.user);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as User;
@@ -14,10 +26,11 @@ function readPersistedUser(): User | null {
 
 function persistCurrentUser(user: User | null) {
   if (user) {
-    localStorage.setItem("campusmast.currentUser", JSON.stringify(user));
+    sessionStorage.setItem(TOKEN_KEYS.user, JSON.stringify(user));
   } else {
-    localStorage.removeItem("campusmast.currentUser");
+    sessionStorage.removeItem(TOKEN_KEYS.user);
   }
+  localStorage.removeItem(TOKEN_KEYS.user);
 }
 
 interface AuthState {
@@ -30,8 +43,8 @@ interface AuthState {
 
 export const useAuthStore = defineStore("auth", {
   state: (): AuthState => ({
-    accessToken: localStorage.getItem("campusmast.accessToken"),
-    refreshToken: localStorage.getItem("campusmast.refreshToken"),
+    accessToken: sessionStorage.getItem(TOKEN_KEYS.access),
+    refreshToken: sessionStorage.getItem(TOKEN_KEYS.refresh),
     currentUser: readPersistedUser(),
     loading: false,
     error: null,
@@ -113,6 +126,7 @@ export const useAuthStore = defineStore("auth", {
       try {
         const user = await authApi.updateCurrentUser(updates);
         this.currentUser = user;
+        persistCurrentUser(user);
         return user;
       } catch (err: unknown) {
         this.error = (err as any)?.response?.data?.error?.message || "更新失败";
@@ -123,8 +137,9 @@ export const useAuthStore = defineStore("auth", {
     persistTokens(accessToken: string, refreshToken: string) {
       this.accessToken = accessToken;
       this.refreshToken = refreshToken;
-      localStorage.setItem("campusmast.accessToken", accessToken);
-      localStorage.setItem("campusmast.refreshToken", refreshToken);
+      sessionStorage.setItem(TOKEN_KEYS.access, accessToken);
+      sessionStorage.setItem(TOKEN_KEYS.refresh, refreshToken);
+      clearLegacyLocalAuth();
     },
 
     clearTokens() {
@@ -132,8 +147,9 @@ export const useAuthStore = defineStore("auth", {
       this.refreshToken = null;
       this.currentUser = null;
       this.error = null;
-      localStorage.removeItem("campusmast.accessToken");
-      localStorage.removeItem("campusmast.refreshToken");
+      sessionStorage.removeItem(TOKEN_KEYS.access);
+      sessionStorage.removeItem(TOKEN_KEYS.refresh);
+      clearLegacyLocalAuth();
       persistCurrentUser(null);
     },
 
