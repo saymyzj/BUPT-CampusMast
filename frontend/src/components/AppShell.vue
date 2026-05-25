@@ -89,6 +89,7 @@ function handleDocumentClick(e: MouseEvent) {
 
 async function handleLogout() {
   showUserMenu.value = false;
+  notificationStore.disconnectRealtime();
   authStore.logout();
   await router.push({ path: "/login", query: { reason: "logout" } });
 }
@@ -112,15 +113,30 @@ watch(
   },
 );
 
+watch(
+  () => authStore.currentUser?.id,
+  (userId) => {
+    if (authStore.isAuthenticated && userId) {
+      notificationStore.connectRealtime(userId);
+    } else {
+      notificationStore.disconnectRealtime();
+    }
+  },
+  { immediate: true },
+);
+
 onMounted(() => {
   globalKeyword.value = routeKeyword();
   document.addEventListener("click", handleDocumentClick);
   if (authStore.isAuthenticated) {
-    void authStore.fetchCurrentUser().catch(() => undefined);
+    void authStore.fetchCurrentUser().then((user) => notificationStore.connectRealtime(user.id)).catch(() => undefined);
     void notificationStore.refreshUnreadCounts();
   }
 });
-onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick));
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleDocumentClick);
+  notificationStore.disconnectRealtime();
+});
 </script>
 
 <style scoped>

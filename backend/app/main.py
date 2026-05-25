@@ -15,6 +15,7 @@ from app.routers import admin, auth, chat, credit, map, moderation, notification
 from app.utils.errors import AppError
 from app.utils.response import failure
 from app.websockets.gateway import router as websocket_router
+from app.websockets.manager import start_realtime_listener, stop_realtime_listener
 
 app = FastAPI(title=settings.app_name, debug=settings.app_debug)
 
@@ -30,6 +31,17 @@ app.add_middleware(
 @app.exception_handler(AppError)
 async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=failure(exc.code, exc.message, exc.details))
+
+
+@app.on_event("startup")
+async def startup_realtime() -> None:
+    await start_realtime_listener()
+
+
+@app.on_event("shutdown")
+async def shutdown_realtime() -> None:
+    await stop_realtime_listener()
+
 
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(task.router, prefix=settings.api_prefix)

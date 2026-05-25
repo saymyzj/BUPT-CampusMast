@@ -12,6 +12,8 @@ from pydantic import BaseModel
 
 class ConfigUpdateRequest(BaseModel):
     configValue: dict[str, Any]
+    configGroup: str | None = None
+    description: str | None = None
 
 
 class ConfigItemResponse(BaseModel):

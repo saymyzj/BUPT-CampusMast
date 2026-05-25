@@ -11,7 +11,7 @@ from fastapi import status
 from sqlalchemy.orm import Session
 
 from app.models.config import HomepageBlock, SystemConfig
-from app.schemas.config import HomepageBlockUpsertRequest
+from app.schemas.config import ConfigUpdateRequest, HomepageBlockUpsertRequest
 from app.utils.errors import AppError
 from app.utils.ids import generate_id
 from app.utils.serialization import json_dumps, json_loads, to_iso8601
@@ -22,12 +22,26 @@ def list_configs(db: Session) -> list[dict[str, Any]]:
     return [serialize_config(row) for row in rows]
 
 
-def update_config(db: Session, *, key: str, config_value: dict[str, Any], admin_id: str) -> dict[str, Any]:
+def update_config(db: Session, *, key: str, payload: ConfigUpdateRequest, admin_id: str) -> dict[str, Any]:
     row = db.get(SystemConfig, key)
     if row is None:
-        raise AppError("CONFIG_NOT_FOUND", "配置项不存在", status.HTTP_404_NOT_FOUND)
-    row.config_value = json_dumps(config_value)
-    row.updated_by = admin_id
+        if not payload.configGroup:
+            raise AppError("CONFIG_GROUP_REQUIRED", "新增配置项必须提供 configGroup", status.HTTP_400_BAD_REQUEST)
+        row = SystemConfig(
+            config_key=key,
+            config_group=payload.configGroup,
+            config_value=json_dumps(payload.configValue),
+            description=payload.description,
+            updated_by=admin_id,
+        )
+        db.add(row)
+    else:
+        row.config_value = json_dumps(payload.configValue)
+        if payload.configGroup is not None:
+            row.config_group = payload.configGroup
+        if payload.description is not None:
+            row.description = payload.description
+        row.updated_by = admin_id
     db.commit()
     db.refresh(row)
     return serialize_config(row)

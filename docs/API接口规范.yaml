@@ -4,7 +4,11 @@ info:
   title: CampusMast API
   version: "2.0.0"
   description: |
-    CampusMast 第三阶段冻结版接口规范。
+    CampusMast 第三阶段接口规范。
+
+    当前项目仍处于联调收口期，接口契约采用“代码实现 + 本文档同步校准”的方式维护；
+    最终验收前再冻结为正式 OpenAPI 契约。任何影响字段名、状态机、错误码或 WebSocket
+    事件的变更，仍需由组长确认后再落库到本文档。
 
     约定如下：
     - 所有 JSON 字段名使用 camelCase
@@ -14,6 +18,7 @@ info:
     - 时间戳统一使用 ISO 8601
     - 除注册、登录、刷新令牌外，所有 HTTP 接口都需要 JWT
     - 实时通知与任务内聊天统一通过 `WebSocket`
+    - AI 审核最终口径为“真实 DeepSeek + 关键词兜底”
 
 servers:
   - url: http://localhost:9000

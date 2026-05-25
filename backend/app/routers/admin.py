@@ -17,6 +17,7 @@ from app.services.admin_service import build_admin_stats, list_tasks, list_users
 from app.services.config_service import list_configs, list_homepage_blocks, update_config, upsert_homepage_block
 from app.services.moderation_service import list_moderation_records, review_moderation_record
 from app.utils.response import success
+from app.websockets.manager import manager
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -107,7 +108,7 @@ def admin_update_config(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
-    return success(update_config(db, key=key, config_value=payload.configValue, admin_id=admin.id))
+    return success(update_config(db, key=key, payload=payload, admin_id=admin.id))
 
 
 @router.get("/homepage/blocks")
@@ -128,3 +129,8 @@ def admin_update_homepage_block(
 @router.get("/stats")
 def admin_get_stats(_: User = Depends(require_admin), db: Session = Depends(get_db)) -> dict:
     return success(build_admin_stats(db))
+
+
+@router.get("/ws/connections")
+def admin_get_ws_connections(_: User = Depends(require_admin)) -> dict:
+    return success(manager.snapshot())

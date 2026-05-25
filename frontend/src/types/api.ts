@@ -330,6 +330,8 @@ export interface AdminReviewModerationRequest {
 
 export interface AdminUpdateConfigRequest {
   configValue: Record<string, unknown>;
+  configGroup?: string;
+  description?: string | null;
 }
 
 // ===== 系统配置 =====

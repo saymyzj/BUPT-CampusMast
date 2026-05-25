@@ -72,7 +72,11 @@ def create_notification(
 
 async def push_notification_events(db: Session, *, user_id: str, notification: Notification) -> None:
     await manager.broadcast(f"notification:{user_id}", NOTIFICATION_CREATED, serialize_notification(notification))
-    await manager.broadcast(f"notification:{user_id}", UNREAD_SYNC, {"unreadCount": get_unread_count(db, user_id=user_id)})
+    await manager.broadcast(
+        f"notification:{user_id}",
+        UNREAD_SYNC,
+        {"scope": "notification", "unreadCount": get_unread_count(db, user_id=user_id)},
+    )
 
 
 def serialize_notification(notification: Notification) -> dict[str, Any]:

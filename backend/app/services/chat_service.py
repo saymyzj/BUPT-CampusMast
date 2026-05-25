@@ -105,7 +105,7 @@ async def push_message_events(db: Session, *, task_id: str, message: dict[str, A
         await manager.broadcast(
             f"notification:{participant.user_id}",
             UNREAD_SYNC,
-            {"unreadCount": participant.unread_count},
+            {"scope": "chat", "unreadCount": participant.unread_count},
         )
 
 

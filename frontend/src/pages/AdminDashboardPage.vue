@@ -287,6 +287,58 @@
             <p v-else class="empty-line">暂无待复审记录</p>
           </div>
         </section>
+
+        <section v-else-if="activePanel === 'notice'" class="manage-grid">
+          <article class="dash-card table-card">
+            <header>
+              <h2>首页内容配置</h2>
+              <span>{{ homepageBlocks.length }} 个模块</span>
+            </header>
+            <div class="scroll-table">
+              <table v-if="homepageBlocks.length">
+                <thead><tr><th>类型</th><th>标题</th><th>内容</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr v-for="block in homepageBlocks" :key="block.id">
+                    <td>{{ block.blockType }}</td>
+                    <td>{{ block.title }}</td>
+                    <td>{{ compactJson(block.content) }}</td>
+                    <td>{{ block.sortOrder }}</td>
+                    <td>{{ block.isActive ? "启用" : "停用" }}</td>
+                    <td class="actions">
+                      <button type="button" @click="editHomepageBlock(block)">编辑</button>
+                      <button type="button" @click="toggleHomepageBlock(block)">{{ block.isActive ? "停用" : "启用" }}</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <p v-else class="empty-line">暂无首页模块</p>
+            </div>
+          </article>
+        </section>
+
+        <section v-else-if="activePanel === 'rules'" class="dash-card table-card work-card">
+          <header>
+            <h2>运营规则配置</h2>
+            <span>{{ configs.length }} 项配置</span>
+          </header>
+          <div class="scroll-table">
+            <table v-if="configs.length">
+              <thead><tr><th>配置键</th><th>分组</th><th>当前值</th><th>说明</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr v-for="config in configs" :key="config.configKey">
+                  <td>{{ config.configKey }}</td>
+                  <td>{{ config.configGroup }}</td>
+                  <td>{{ compactJson(config.configValue) }}</td>
+                  <td>{{ config.description || "-" }}</td>
+                  <td class="actions">
+                    <button type="button" @click="editConfig(config)">编辑 JSON</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-else class="empty-line">暂无配置项</p>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -349,20 +401,23 @@
 import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import {
+  adminListConfigs,
   adminListHomepageBlocks,
   adminListModerationRecords,
   adminListTasks,
   adminListUsers,
   adminResolveDispute,
   adminReviewModerationRecord,
+  adminUpdateConfig,
+  adminUpdateHomepageBlock,
   adminUpdateUser,
 } from "@/api/modules/admin";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import AppSelect from "@/components/ui/AppSelect.vue";
 import { useAuthStore } from "@/stores/auth";
-import type { AdminReviewStatus, HomepageBlock, ModerationRecord, ModerationResult, Role, Task, TaskStatus, User } from "@/types/api";
+import type { AdminReviewStatus, ConfigItem, HomepageBlock, ModerationRecord, ModerationResult, Role, Task, TaskStatus, User } from "@/types/api";
 
-type PanelKey = "overview" | "manage" | "disputes" | "review";
+type PanelKey = "overview" | "manage" | "disputes" | "review" | "notice" | "rules";
 type NavKey = PanelKey | "users" | "tasks" | "notice" | "rules";
 type TaskSortKey = "title" | "requester" | "status" | "reward" | "location";
 
@@ -382,6 +437,7 @@ const users = ref<User[]>([]);
 const tasks = ref<Task[]>([]);
 const selectedTask = ref<Task | null>(null);
 const moderationRows = ref<ModerationRecord[]>([]);
+const configs = ref<ConfigItem[]>([]);
 const homepageBlocks = ref<HomepageBlock[]>([]);
 
 const trendRangeOptions = [
@@ -419,6 +475,8 @@ const panelTitle = computed(() => {
   if (activePanel.value === "manage") return "管理";
   if (activePanel.value === "disputes") return "争议裁决";
   if (activePanel.value === "review") return "AI 审核队列";
+  if (activePanel.value === "notice") return "通知与首页配置";
+  if (activePanel.value === "rules") return "运营规则配置";
   return "总览控制台";
 });
 
@@ -426,6 +484,8 @@ const panelSubtitle = computed(() => {
   if (activePanel.value === "manage") return "用户管理与任务管理统一处理";
   if (activePanel.value === "disputes") return "处理用户发起的任务争议";
   if (activePanel.value === "review") return "收纳并复审 AI 标记的任务";
+  if (activePanel.value === "notice") return "维护首页公告、Banner 与推荐位内容";
+  if (activePanel.value === "rules") return "维护信用、审核、推荐等可配置规则";
   return "系统整体运行概览与关键指标";
 });
 
@@ -563,7 +623,7 @@ function handleNav(key: NavKey) {
     activePanel.value = "manage";
     return;
   }
-  if (key === "overview" || key === "disputes" || key === "review") {
+  if (key === "overview" || key === "disputes" || key === "review" || key === "notice" || key === "rules") {
     activePanel.value = key;
     return;
   }
@@ -608,10 +668,11 @@ function taskSortValue(task: Task, key: TaskSortKey) {
 async function loadAdminData() {
   loadError.value = "";
   try {
-    const [userResult, taskResult, moderationResult, blockResult] = await Promise.all([
+    const [userResult, taskResult, moderationResult, configResult, blockResult] = await Promise.all([
       adminListUsers({ page: 1, limit: 100 }),
       adminListTasks({ page: 1, limit: 100 }),
       adminListModerationRecords({ page: 1, limit: 100 }),
+      adminListConfigs(),
       adminListHomepageBlocks(),
     ]);
     usersTotal.value = userResult.meta.total;
@@ -619,10 +680,44 @@ async function loadAdminData() {
     users.value = userResult.data;
     tasks.value = taskResult.data;
     moderationRows.value = moderationResult.data;
+    configs.value = configResult;
     homepageBlocks.value = blockResult;
   } catch (err: any) {
     loadError.value = err?.response?.data?.error?.message || "后台数据加载失败";
   }
+}
+
+async function editConfig(config: ConfigItem) {
+  const raw = prompt(`编辑 ${config.configKey} 的 JSON 配置：`, JSON.stringify(config.configValue, null, 2));
+  if (raw === null) return;
+  try {
+    const configValue = JSON.parse(raw) as Record<string, unknown>;
+    await adminUpdateConfig(config.configKey, {
+      configGroup: config.configGroup,
+      description: config.description,
+      configValue,
+    });
+    await loadAdminData();
+  } catch {
+    alert("请输入合法 JSON");
+  }
+}
+
+async function editHomepageBlock(block: HomepageBlock) {
+  const raw = prompt(`编辑「${block.title}」内容 JSON：`, JSON.stringify(block.content, null, 2));
+  if (raw === null) return;
+  try {
+    const content = JSON.parse(raw) as Record<string, unknown>;
+    await adminUpdateHomepageBlock(block.id, { ...block, content });
+    await loadAdminData();
+  } catch {
+    alert("请输入合法 JSON");
+  }
+}
+
+async function toggleHomepageBlock(block: HomepageBlock) {
+  await adminUpdateHomepageBlock(block.id, { ...block, isActive: !block.isActive });
+  await loadAdminData();
 }
 
 async function resolveDispute(taskId: string, resolution: "refund" | "settle" | "close") {
@@ -683,6 +778,11 @@ function statusLabel(status: TaskStatus) {
 
 function money(value: number) {
   return value.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function compactJson(value: Record<string, unknown>) {
+  const text = JSON.stringify(value);
+  return text.length > 70 ? `${text.slice(0, 70)}...` : text;
 }
 
 function formatDate(value: string) {

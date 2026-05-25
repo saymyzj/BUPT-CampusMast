@@ -205,6 +205,28 @@ def _ensure_moderation(db: Session, user_id: str, task_id: str) -> None:
 def _ensure_configs(db: Session, admin_id: str) -> None:
     defaults = [
         ("helperCreditThreshold", "credit", {"value": 60}, "接单最低信用分"),
+        (
+            "credit.weights",
+            "credit",
+            {
+                "helper": {"completion_rate": 0.35, "average_rating": 0.25, "timeout_rate": 0.15, "abandon_rate": 0.15, "dispute_lose_rate": 0.10},
+                "requester": {"completion_rate": 0.35, "average_rating": 0.25, "timeout_rate": 0.15, "malicious_dispute_rate": 0.15, "post_accept_cancel_rate": 0.10},
+                "overall": {"helper": 0.60, "requester": 0.40},
+            },
+            "双分制信用权重",
+        ),
+        (
+            "recommendation.weights",
+            "recommendation",
+            {"category": 0.30, "distance": 0.30, "successRate": 0.25, "activeTime": 0.15},
+            "推荐排序权重",
+        ),
+        (
+            "moderation.mode",
+            "moderation",
+            {"provider": "DEEPSEEK", "fallback": "KEYWORD_RULES", "failurePolicy": "REVIEW"},
+            "AI 审核最终口径：真实 DeepSeek + 关键词兜底",
+        ),
         ("moderationFailurePolicy", "moderation", {"fallback": "REVIEW"}, "审核异常时的兜底策略"),
         ("homepageBannerRotationSeconds", "homepage", {"value": 6}, "首页轮播间隔"),
     ]
