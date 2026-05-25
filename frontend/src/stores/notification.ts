@@ -12,40 +12,34 @@ export const useNotificationStore = defineStore("notification", {
   state: () => ({
     chatUnreadCount: 0,
     notificationUnreadCount: 0,
-    unreadCount: 0,
     items: [] as Array<Record<string, unknown>>,
-    loadingUnread: false,
   }),
   getters: {
+    unreadCount: (state) => state.notificationUnreadCount,
     totalUnreadCount: (state) => state.chatUnreadCount + state.notificationUnreadCount,
   },
   actions: {
     setUnreadCount(count: number) {
-      this.unreadCount = count;
+      this.notificationUnreadCount = count;
     },
     setChatUnreadCount(count: number) {
-      this.chatUnreadCount = Math.max(0, count);
+      this.chatUnreadCount = count;
     },
     setNotificationUnreadCount(count: number) {
-      this.notificationUnreadCount = Math.max(0, count);
-      this.unreadCount = this.notificationUnreadCount;
+      this.notificationUnreadCount = count;
     },
     setItems(items: Array<Record<string, unknown>>) {
       this.items = items;
     },
     async refreshUnreadCounts() {
-      this.loadingUnread = true;
-      try {
-        const [conversations, notifications] = await Promise.all([
-          listChatConversations(),
-          listNotifications({ page: 1, limit: 1, unreadOnly: true }),
-        ]);
-        this.setChatUnreadCount(conversations.reduce((sum, item) => sum + item.unreadCount, 0));
-        this.setNotificationUnreadCount(notifications.meta.unreadCount ?? notifications.meta.total);
-      } catch {
-        // Keep the existing badge value when one source is temporarily unavailable.
-      } finally {
-        this.loadingUnread = false;
+      const [conversations, notifications] = await Promise.all([
+        listChatConversations().catch(() => []),
+        listNotifications({ page: 1, limit: 1 }).catch(() => null),
+      ]);
+      this.chatUnreadCount = conversations.reduce((sum, item) => sum + item.unreadCount, 0);
+      if (notifications) {
+        this.notificationUnreadCount =
+          notifications.meta.unreadCount ?? notifications.data.filter((item) => !item.isRead).length;
       }
     },
   },
