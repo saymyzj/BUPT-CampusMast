@@ -145,7 +145,7 @@
               <div class="user-mini">
                 <span class="user-avatar avatar-requester">{{ task.requester.nickname.slice(0, 1) }}</span>
                 <div>
-                  <strong>{{ task.requester.nickname }}</strong>
+                  <RouterLink class="user-profile-link" :to="`/users/${task.requester.id}`">{{ task.requester.nickname }}</RouterLink>
                   <small>信用分 {{ task.requester.overallCreditScore }}</small>
                 </div>
               </div>
@@ -158,7 +158,7 @@
               <div v-if="task.helper" class="user-mini">
                 <span class="user-avatar avatar-helper">{{ task.helper.nickname.slice(0, 1) }}</span>
                 <div>
-                  <strong>{{ task.helper.nickname }}</strong>
+                  <RouterLink class="user-profile-link" :to="`/users/${task.helper.id}`">{{ task.helper.nickname }}</RouterLink>
                   <small>信用分 {{ task.helper.overallCreditScore }}</small>
                 </div>
               </div>
@@ -173,7 +173,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import {
   abandonTask,
@@ -839,12 +839,23 @@ onMounted(() => {
 }
 
 .user-mini strong,
+.user-profile-link,
 .user-mini small {
   display: block;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.user-profile-link {
+  color: #252720;
+  font-weight: 950;
+  text-decoration: none;
+}
+
+.user-profile-link:hover {
+  color: #6f835f;
 }
 
 .user-mini small {

@@ -115,6 +115,17 @@ export interface UserSummary {
   overallCreditScore: number;
 }
 
+export interface UserPublicProfile {
+  id: string;
+  nickname: string;
+  role: Role;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  requesterCreditScore: number;
+  helperCreditScore: number;
+  overallCreditScore: number;
+}
+
 // ===== 任务相关 =====
 export interface CreateTaskRequest {
   title: string;

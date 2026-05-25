@@ -11,6 +11,7 @@ import type {
   AuthLoginRequest,
   TokenRefreshRequest,
   User,
+  UserPublicProfile,
   UserUpdateRequest,
 } from "@/types/api";
 
@@ -48,6 +49,11 @@ export async function resetPassword(payload: { studentEmail: string; newPassword
  */
 export async function getCurrentUser(): Promise<User> {
   const response = await apiClient.get("/api/auth/me");
+  return response.data.data;
+}
+
+export async function getUserPublicProfile(id: string): Promise<UserPublicProfile> {
+  const response = await apiClient.get(`/api/auth/users/${id}`);
   return response.data.data;
 }
 

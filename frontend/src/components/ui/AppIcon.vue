@@ -181,6 +181,19 @@
       <circle cx="12" cy="12" r="8.5" />
       <path d="M12 7.5V12l3.2 2" />
     </template>
+    <template v-else-if="name === 'chevron-down'">
+      <path d="m6 9 6 6 6-6" />
+    </template>
+    <template v-else-if="name === 'check'">
+      <path d="m5 12 4.2 4.2L19 6.5" />
+    </template>
+    <template v-else-if="name === 'sort'">
+      <path d="M7 5h10M9 12h6M11 19h2" />
+      <path d="m17 15 3 3 3-3M20 18V6" />
+    </template>
+    <template v-else-if="name === 'filter'">
+      <path d="M4.5 6h15M7 12h10M10 18h4" />
+    </template>
   </svg>
 </template>
 

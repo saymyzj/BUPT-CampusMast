@@ -69,34 +69,30 @@
         <div class="wallet-layout">
           <main ref="transactionsPanel" class="transactions-card">
             <div class="toolbar">
-              <label class="date-filter">
-                <AppIcon name="calendar" />
-                <select v-model="filters.range">
-                  <option value="30">最近 30 天</option>
-                  <option value="90">最近 90 天</option>
-                  <option value="all">全部时间</option>
-                </select>
-              </label>
+              <AppSelect
+                :model-value="filters.range"
+                :options="rangeFilterOptions"
+                variant="field"
+                icon="calendar"
+                @change="handleRangeFilterChange"
+              />
 
-              <label class="custom-select">
-                <select v-model="filters.type">
-                  <option value="">全部类型</option>
-                  <option value="TOP_UP">充值</option>
-                  <option value="WITHDRAW">提现</option>
-                  <option value="FREEZE">冻结</option>
-                  <option value="UNFREEZE">解冻</option>
-                  <option value="SETTLE_OUT">结算支出</option>
-                  <option value="SETTLE_IN">结算收入</option>
-                  <option value="SETTLE_SPLIT">分账</option>
-                </select>
-              </label>
+              <AppSelect
+                :model-value="filters.type"
+                :options="typeFilterOptions"
+                variant="field"
+                icon="filter"
+                show-option-dot
+                @change="handleTypeFilterChange"
+              />
 
-              <label class="custom-select">
-                <select v-model="filters.status">
-                  <option value="">全部状态</option>
-                  <option value="success">成功</option>
-                </select>
-              </label>
+              <AppSelect
+                :model-value="filters.status"
+                :options="statusFilterOptions"
+                variant="field"
+                icon="check-circle"
+                @change="handleStatusFilterChange"
+              />
 
               <label class="search-box">
                 <input v-model.trim="filters.keyword" type="search" placeholder="搜索交易单号或备注" />
@@ -221,6 +217,7 @@ import { useRouter } from "vue-router";
 import { getTaskById } from "@/api/modules/task";
 import { getWalletBalance, listWalletTransactions, topUpWallet, withdrawWallet } from "@/api/modules/wallet";
 import AppIcon from "@/components/ui/AppIcon.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
 import type { Transaction, TransactionType, Wallet } from "@/types/api";
 
 type ActionType = "topup" | "withdraw";
@@ -264,6 +261,28 @@ const txLabels: Record<TransactionType, string> = {
   SETTLE_IN: "结算收入",
   SETTLE_SPLIT: "分账",
 };
+
+const rangeFilterOptions = [
+  { value: "30", label: "最近 30 天", icon: "calendar" },
+  { value: "90", label: "最近 90 天", icon: "calendar" },
+  { value: "all", label: "全部时间", icon: "clock" },
+];
+
+const typeFilterOptions = [
+  { value: "", label: "全部类型", icon: "spark" },
+  { value: "TOP_UP", label: "充值", icon: "wallet" },
+  { value: "WITHDRAW", label: "提现", icon: "download" },
+  { value: "FREEZE", label: "冻结", icon: "shield" },
+  { value: "UNFREEZE", label: "解冻", icon: "check-circle" },
+  { value: "SETTLE_OUT", label: "结算支出", icon: "yen" },
+  { value: "SETTLE_IN", label: "结算收入", icon: "yen" },
+  { value: "SETTLE_SPLIT", label: "分账", icon: "layers" },
+];
+
+const statusFilterOptions = [
+  { value: "", label: "全部状态", icon: "spark" },
+  { value: "success", label: "成功", icon: "check-circle" },
+];
 
 const descriptionLabels: Record<string, string> = {
   "Wallet top-up": "钱包充值",
@@ -316,11 +335,23 @@ const incomePoints = computed(() => incomeDots.value.map((point) => `${point.x},
 const expensePoints = computed(() => expenseDots.value.map((point) => `${point.x},${point.y}`).join(" "));
 
 watch(
-  () => [filters.range, filters.type, filters.keyword],
+  () => [filters.range, filters.type, filters.status, filters.keyword],
   () => {
     page.value = 1;
   },
 );
+
+function handleRangeFilterChange(value: string) {
+  filters.range = value as "30" | "90" | "all";
+}
+
+function handleTypeFilterChange(value: string) {
+  filters.type = value as "" | TransactionType;
+}
+
+function handleStatusFilterChange(value: string) {
+  filters.status = value;
+}
 
 function money(value: string | number) {
   const numeric = Number(value);

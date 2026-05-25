@@ -17,15 +17,14 @@
     <section class="content">
       <main class="task-panel">
         <div class="filters">
-          <label class="custom-select">
-            <select v-model="filters.category" @change="search">
-              <option value="">全部分类</option>
-              <option value="package">代取快递</option>
-              <option value="food">代买餐食</option>
-              <option value="move">搬运重物</option>
-              <option value="other">其他</option>
-            </select>
-          </label>
+          <AppSelect
+            :model-value="filters.category"
+            :options="categoryFilterOptions"
+            variant="pill"
+            icon="package"
+            show-option-dot
+            @change="handleCategoryChange"
+          />
 
           <label class="inline-search">
             <input v-model.trim="filters.keyword" type="search" placeholder="搜索任务关键词" @keyup.enter="search" />
@@ -36,14 +35,13 @@
 
           <input v-model.number="filters.rewardMax" class="reward-input" type="number" min="0" inputmode="decimal" placeholder="最高赏金" />
 
-          <label class="custom-select">
-            <select v-model="filters.sortBy" @change="search">
-              <option value="distanceAsc">距离排序</option>
-              <option value="newest">最新发布</option>
-              <option value="rewardDesc">赏金最高</option>
-              <option value="deadlineAsc">即将截止</option>
-            </select>
-          </label>
+          <AppSelect
+            :model-value="filters.sortBy || 'distanceAsc'"
+            :options="sortFilterOptions"
+            variant="pill"
+            icon="sort"
+            @change="handleSortChange"
+          />
 
           <div class="toggle">
             <button class="on" type="button">列表</button>
@@ -167,6 +165,7 @@ import { listMyAcceptedTasks, listMyPostedTasks, listTasks } from "@/api/modules
 import { useBuildingName } from "@/composables/useBuildings";
 import { useAuthStore } from "@/stores/auth";
 import AppIcon from "@/components/ui/AppIcon.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
 import type { Task, TaskCategory, TaskListParams } from "@/types/api";
 
 type TaskColor = "green" | "orange" | "blue" | "violet";
@@ -218,6 +217,21 @@ const labels: Record<TaskCategory, string> = {
   move: "搬运重物",
   other: "其他",
 };
+
+const categoryFilterOptions = [
+  { value: "", label: "全部分类", icon: "spark" },
+  { value: "package", label: "代取快递", icon: "package" },
+  { value: "food", label: "代买餐食", icon: "food" },
+  { value: "move", label: "搬运重物", icon: "move" },
+  { value: "other", label: "其他", icon: "other" },
+];
+
+const sortFilterOptions = [
+  { value: "distanceAsc", label: "距离排序", icon: "map-pin" },
+  { value: "newest", label: "最新发布", icon: "clock" },
+  { value: "rewardDesc", label: "赏金最高", icon: "yen" },
+  { value: "deadlineAsc", label: "即将截止", icon: "calendar" },
+];
 
 const iconByCategory: Record<TaskCategory, string> = {
   package: "package",
@@ -345,6 +359,16 @@ async function search() {
   }
   page.value = 1;
   await fetchTasks(false);
+}
+
+function handleCategoryChange(value: string) {
+  filters.category = value as "" | TaskCategory;
+  void search();
+}
+
+function handleSortChange(value: string) {
+  filters.sortBy = value as TaskListParams["sortBy"];
+  void search();
 }
 
 async function goPage(nextPage: number) {

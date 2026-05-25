@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import Role
 from app.models.user import User, UserProfile
-from app.schemas.auth import AuthLoginRequest, AuthPayload, AuthRegisterRequest, PasswordResetRequest, UserResponse, UserUpdateRequest
+from app.schemas.auth import AuthLoginRequest, AuthPayload, AuthRegisterRequest, PasswordResetRequest, UserPublicResponse, UserResponse, UserUpdateRequest
 from app.utils.errors import AppError
 from app.utils.ids import generate_id
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
@@ -113,6 +113,22 @@ def update_current_user(db: Session, user: User, payload: UserUpdateRequest) -> 
     db.commit()
     db.refresh(user)
     return serialize_user(db, user)
+
+
+def get_public_user_profile(db: Session, user_id: str) -> UserPublicResponse:
+    user = db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise AppError("USER_NOT_FOUND", "用户不存在或已停用", status.HTTP_404_NOT_FOUND)
+    return UserPublicResponse(
+        id=user.id,
+        nickname=user.nickname,
+        role=user.role.value,
+        phone=user.phone,
+        avatarUrl=user.avatar_url,
+        requesterCreditScore=decimal_to_float(user.requester_credit_score) or 0,
+        helperCreditScore=decimal_to_float(user.helper_credit_score) or 0,
+        overallCreditScore=decimal_to_float(user.overall_credit_score) or 0,
+    )
 
 
 def build_auth_payload(db: Session, user: User) -> AuthPayload:

@@ -37,17 +37,14 @@
               </button>
             </div>
 
-            <label class="status-select">
-              <span>状态</span>
-              <select v-model="statusFilter" @change="handleStatusChange">
-                <option value="">全部状态</option>
-                <option value="PENDING">待接单</option>
-                <option value="IN_PROGRESS">进行中</option>
-                <option value="PENDING_REVIEW">待验收</option>
-                <option value="COMPLETED">已完成</option>
-                <option value="DISPUTED">争议中</option>
-              </select>
-            </label>
+            <AppSelect
+              :model-value="statusFilter"
+              :options="statusFilterOptions"
+              variant="pill"
+              icon="filter"
+              show-option-dot
+              @change="handleStatusFilterChange"
+            />
           </div>
 
           <div v-if="loading" class="state-card">
@@ -169,6 +166,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { listMyAcceptedTasks, listMyPostedTasks } from "@/api/modules/task";
 import AppIcon from "@/components/ui/AppIcon.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
 import { useBuildingName } from "@/composables/useBuildings";
 import type { Task, TaskCategory, TaskStatus } from "@/types/api";
 
@@ -195,6 +193,15 @@ const statusLabels: Record<TaskStatus, string> = {
   EXPIRED: "已过期",
   CLOSED_BY_ADMIN: "已关闭",
 };
+
+const statusFilterOptions = [
+  { value: "", label: "全部状态", icon: "spark" },
+  { value: "PENDING", label: "待接单", icon: "package" },
+  { value: "IN_PROGRESS", label: "进行中", icon: "clock" },
+  { value: "PENDING_REVIEW", label: "待验收", icon: "check-circle" },
+  { value: "COMPLETED", label: "已完成", icon: "check" },
+  { value: "DISPUTED", label: "争议中", icon: "alert" },
+];
 
 const categoryLabels: Record<TaskCategory, string> = {
   package: "代取快递",
@@ -275,6 +282,11 @@ function switchTab(nextTab: "posted" | "accepted") {
 function handleStatusChange() {
   page.value = 1;
   void fetchTasks();
+}
+
+function handleStatusFilterChange(value: string) {
+  statusFilter.value = value;
+  handleStatusChange();
 }
 
 function goPage(nextPage: number) {
