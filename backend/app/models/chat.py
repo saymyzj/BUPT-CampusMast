@@ -1,7 +1,7 @@
 """
 文件说明：
 这是任务内 IM 的模型文件。
-会话、参与者和消息的最小结构都在这里，后续组长可直接扩展为生产级聊天模型。
+会话、参与者和消息的本地验收结构都在这里，支撑任务内聊天与未读状态。
 """
 from __future__ import annotations
 
@@ -44,4 +44,3 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     client_message_id: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-

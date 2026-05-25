@@ -39,8 +39,8 @@ export async function refreshToken(payload: TokenRefreshRequest): Promise<{ acce
   return response.data.data;
 }
 
-export async function resetPassword(payload: { studentEmail: string; newPassword: string }): Promise<{ message: string }> {
-  const response = await apiClient.post("/api/auth/password/reset", payload);
+export async function changePassword(payload: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
+  const response = await apiClient.put("/api/auth/me/password", payload);
   return response.data.data;
 }
 
@@ -64,4 +64,3 @@ export async function updateCurrentUser(payload: UserUpdateRequest): Promise<Use
   const response = await apiClient.put("/api/auth/me", payload);
   return response.data.data;
 }
-

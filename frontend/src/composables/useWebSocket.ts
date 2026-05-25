@@ -1,7 +1,7 @@
 /**
  * 文件说明：
  * 这是前端 WebSocket 连接的基础封装。
- * 它为通知与任务内聊天提供统一入口，A 同学后续可以基于它拆分通知通道和聊天通道。
+ * 它为通知与任务内聊天提供统一入口。
  */
 import { ref, onMounted, onUnmounted } from "vue";
 
@@ -33,4 +33,3 @@ export function useWebSocket(path: string) {
 
   return { socket, isConnected, connect, disconnect };
 }
-

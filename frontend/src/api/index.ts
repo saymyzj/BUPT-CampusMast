@@ -8,3 +8,4 @@ export * from "./modules/recommendation";
 export * from "./modules/moderation";
 export * from "./modules/upload";
 export * from "./modules/admin";
+export * from "./modules/credit";

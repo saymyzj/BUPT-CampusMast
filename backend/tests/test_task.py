@@ -18,11 +18,11 @@ from app.dependencies.database import get_db
 from app.models import *  # noqa: F403
 from app.models.base import Base
 from app.models.config import SystemConfig
-from app.models.enums import ModerationResult, TaskCategory, TaskStatus
+from app.models.enums import AdminReviewStatus, ModerationResult, TaskCategory, TaskStatus
 from app.models.map import CampusBuilding
 from app.models.moderation import ModerationRecord
 from app.models.task import Task, TaskLog
-from app.models.user import User
+from app.models.user import User, UserProfile
 from app.models.wallet import Wallet
 from app.routers.task import router as task_router
 import app.services.task_service as task_service_module
@@ -45,6 +45,8 @@ from app.services.task_service import (
     submit_task_proof,
     task_to_dict,
 )
+from app.schemas.admin import AdminReviewModerationRequest
+from app.services.moderation_service import ModerationDecision, review_moderation_record
 from app.models.enums import Role
 from app.models.rating import CreditSnapshot
 from app.models.wallet import Transaction
@@ -169,7 +171,7 @@ def task_api_client(db_session):
         yield client, current_user
 
 
-def test_create_task_freezes_reward_and_writes_initial_log(db_session) -> None:
+def test_create_task_freezes_reward_without_status_transition_log(db_session) -> None:
     add_user(db_session, "requester", available="100.00")
 
     task = create_task(db_session, "requester", task_payload("30.00"))
@@ -178,7 +180,7 @@ def test_create_task_freezes_reward_and_writes_initial_log(db_session) -> None:
     assert task.status == TaskStatus.PENDING
     assert wallet_to_dict(wallet) == {"available": "70.00", "frozen": "30.00", "total": "100.00"}
     logs = db_session.query(TaskLog).filter_by(task_id=task.id).all()
-    assert len(logs) == 1
+    assert logs == []
 
 
 def test_full_task_flow_settles_funds_once_completed(db_session) -> None:
@@ -266,6 +268,7 @@ def test_create_task_blocks_high_risk_content_without_freezing_wallet(db_session
     assert len(records) == 1
     assert records[0].task_id is None
     assert records[0].risk_level == "BLOCK"
+    assert records[0].admin_review_status == AdminReviewStatus.REJECTED.value
 
 
 def test_create_task_review_content_marks_needs_admin_review(db_session, monkeypatch) -> None:
@@ -282,6 +285,7 @@ def test_create_task_review_content_marks_needs_admin_review(db_session, monkeyp
     assert task.needs_admin_review is True
     assert record.task_id == task.id
     assert record.risk_level == "REVIEW"
+    assert record.admin_review_status == AdminReviewStatus.PENDING.value
 
 
 def test_create_task_allow_content_freezes_reward_and_writes_moderation_record(db_session, monkeypatch) -> None:
@@ -300,6 +304,60 @@ def test_create_task_allow_content_freezes_reward_and_writes_moderation_record(d
     assert wallet_to_dict(wallet) == {"available": "80.00", "frozen": "20.00", "total": "100.00"}
     assert record.task_id == task.id
     assert record.risk_level == "ALLOW"
+    assert record.admin_review_status == AdminReviewStatus.APPROVED.value
+
+
+def test_create_task_sensitive_keywords_block_before_ai_call(db_session, monkeypatch) -> None:
+    add_user(db_session, "requester", available="100.00")
+
+    def fail_if_called(**_kwargs):
+        raise AssertionError("AI should not be called after sensitive keyword hit")
+
+    monkeypatch.setattr("httpx.post", fail_if_called)
+    payload = task_payload("20.00")
+    payload.description = "包含诈骗内容"
+
+    with pytest.raises(TaskError) as exc:
+        create_task(db_session, "requester", payload)
+
+    record = db_session.query(ModerationRecord).one()
+    assert exc.value.code == "MODERATION_BLOCKED"
+    assert record.provider == "LOCAL_KEYWORD"
+    assert record.risk_level == "BLOCK"
+    assert record.admin_review_status == "REJECTED"
+
+
+def test_admin_rejects_review_task_takes_it_down_and_records_reason(db_session, monkeypatch) -> None:
+    add_admin(db_session)
+    add_user(db_session, "requester", available="100.00")
+    monkeypatch.setattr(
+        "app.services.moderation_service.moderate_task_content",
+        lambda **_kwargs: ModerationDecision(
+            ModerationResult.REVIEW,
+            ["risk:HIGH"],
+            "AI refused with high risk",
+            "refuse",
+            "HIGH",
+        ),
+    )
+    task = create_task(db_session, "requester", task_payload("20.00"))
+    record = db_session.query(ModerationRecord).one()
+
+    reviewed = review_moderation_record(
+        db_session,
+        record_id=record.id,
+        payload=AdminReviewModerationRequest(decision="reject", note="人工复审不通过"),
+        admin_id="admin",
+    )
+
+    wallet = db_session.query(Wallet).filter_by(user_id="requester").one()
+    stored = db_session.get(Task, task.id)
+    assert reviewed["adminReviewStatus"] == "REJECTED"
+    assert reviewed["riskHint"] == "HIGH"
+    assert stored.status == TaskStatus.CLOSED_BY_ADMIN
+    assert stored.needs_admin_review is False
+    assert wallet_to_dict(wallet) == {"available": "100.00", "frozen": "0.00", "total": "100.00"}
+    assert db_session.query(TaskLog).filter_by(task_id=task.id, to_status=TaskStatus.CLOSED_BY_ADMIN).count() == 1
 
 
 def test_concurrent_accept_allows_only_one_helper(tmp_path) -> None:
@@ -376,8 +434,7 @@ def test_task_detail_api_contains_frozen_fields(task_api_client, db_session) -> 
     assert data["createdAt"]
     assert data["proofNote"] is None
     assert data["proofImageUrls"] == []
-    assert isinstance(data["logs"], list)
-    assert data["logs"][0]["fromStatus"] == "PENDING"
+    assert data["logs"] == []
     assert current_user.id == "requester"
 
 
@@ -392,6 +449,42 @@ def test_create_task_api_returns_201_success_response(task_api_client, db_sessio
     assert body["success"] is True
     assert body["meta"] is None
     assert body["data"]["status"] == "PENDING"
+
+
+def test_create_task_api_returns_422_for_moderation_block(task_api_client, db_session, monkeypatch) -> None:
+    client, _current_user = task_api_client
+    add_user(db_session, "requester", available="100.00")
+    monkeypatch.setattr(
+        "app.services.moderation_service.moderate_task_content",
+        lambda **_kwargs: (ModerationResult.BLOCK, ["blocked"], "blocked content"),
+    )
+
+    response = client.post("/tasks", json=task_payload_json("15.00"))
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "MODERATION_BLOCKED"
+
+
+def test_create_task_api_infers_building_from_map_coordinates(task_api_client, db_session) -> None:
+    client, _current_user = task_api_client
+    add_user(db_session, "requester", available="100.00")
+    add_building(db_session, "NEAR", 39.9600, 116.3500)
+    add_building(db_session, "FAR", 40.5000, 117.0000)
+    payload = task_payload_json("15.00")
+    payload.pop("buildingCode")
+    payload["latitude"] = 39.9601
+    payload["longitude"] = 116.3501
+
+    response = client.post("/tasks", json=payload)
+
+    body = response.json()
+    assert response.status_code == 201
+    assert body["data"]["buildingCode"] == "NEAR"
+    assert body["data"]["latitude"] == 39.9601
+    assert body["data"]["longitude"] == 116.3501
+    stored = db_session.get(Task, body["data"]["id"])
+    assert float(stored.latitude) == 39.9601
+    assert float(stored.longitude) == 116.3501
 
 
 def test_task_list_api_supports_frozen_filters_and_sort(task_api_client, db_session) -> None:
@@ -417,6 +510,69 @@ def test_task_list_api_supports_frozen_filters_and_sort(task_api_client, db_sess
 
     distance_response = client.get("/tasks", params={"nearBuildingCode": "NEAR", "sortBy": "distanceAsc"})
     assert [row["id"] for row in distance_response.json()["data"]][:2] == [near.id, far.id]
+    assert distance_response.json()["data"][0]["distanceMeters"] == 0.0
+
+
+def test_task_list_api_sorts_by_selected_user_point_and_returns_distance(task_api_client, db_session) -> None:
+    client, _current_user = task_api_client
+    add_user(db_session, "requester", available="100.00")
+    near = create_task(db_session, "requester", task_payload("10.00"))
+    near.title = "Near selected point"
+    near.latitude = Decimal("39.9600")
+    near.longitude = Decimal("116.3500")
+    far = create_task(db_session, "requester", task_payload("10.00"))
+    far.title = "Far selected point"
+    far.latitude = Decimal("39.9700")
+    far.longitude = Decimal("116.3600")
+    db_session.commit()
+
+    response = client.get(
+        "/tasks",
+        params={
+            "sortBy": "distanceAsc",
+            "userLatitude": 39.9601,
+            "userLongitude": 116.3501,
+        },
+    )
+
+    rows = response.json()["data"]
+    assert response.status_code == 200
+    assert [row["id"] for row in rows][:2] == [near.id, far.id]
+    assert rows[0]["distanceMeters"] < rows[1]["distanceMeters"]
+    assert rows[0]["distanceMeters"] > 0
+
+
+def test_task_list_api_supports_recommended_sort_with_explanation(task_api_client, db_session) -> None:
+    client, current_user = task_api_client
+    add_user(db_session, "requester", available="100.00")
+    add_user(db_session, "helper")
+    add_building(db_session, "NEAR", 0, 0)
+    add_building(db_session, "FAR", 1000, 0)
+    db_session.add(
+        UserProfile(
+            user_id="helper",
+            default_building_code="NEAR",
+            preferred_categories='["package"]',
+            active_time_slots="[9]",
+            helper_success_rate=Decimal("100.00"),
+        )
+    )
+    best = create_task(db_session, "requester", task_payload("10.00"))
+    best.category = TaskCategory.PACKAGE
+    best.building_code = "NEAR"
+    weak = create_task(db_session, "requester", task_payload("10.00"))
+    weak.category = TaskCategory.FOOD
+    weak.building_code = "FAR"
+    db_session.commit()
+
+    current_user.id = "helper"
+    response = client.get("/tasks", params={"sortBy": "recommended"})
+
+    rows = response.json()["data"]
+    assert response.status_code == 200
+    assert [row["id"] for row in rows][:2] == [best.id, weak.id]
+    assert rows[0]["recommendation"]["scoreTotal"] >= rows[1]["recommendation"]["scoreTotal"]
+    assert rows[0]["recommendation"]["signals"]["category"] > 0
 
 
 def test_my_task_api_lists_posted_and_accepted_tasks(task_api_client, db_session) -> None:
@@ -480,6 +636,23 @@ def test_accept_task_api_rejects_low_credit_helper(task_api_client, db_session) 
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "HELPER_CREDIT_TOO_LOW"
+
+
+def test_dispute_task_api_moves_in_progress_task_to_disputed(task_api_client, db_session) -> None:
+    client, current_user = task_api_client
+    add_user(db_session, "requester", available="100.00")
+    add_user(db_session, "helper")
+    task = create_task(db_session, "requester", task_payload("20.00"))
+    accept_task(db_session, task.id, "helper")
+
+    current_user.id = "requester"
+    response = client.patch(f"/tasks/{task.id}/dispute", json={"reason": "service abnormal"})
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["success"] is True
+    assert body["data"]["status"] == "DISPUTED"
+    assert db_session.get(Task, task.id).status == TaskStatus.DISPUTED
 
 
 def test_accept_task_api_expires_overdue_task_and_unfreezes_reward(task_api_client, db_session) -> None:
@@ -579,6 +752,7 @@ def test_transition_rule_table_matches_frozen_document() -> None:
         (TaskStatus.PENDING, TaskStatus.IN_PROGRESS),
         (TaskStatus.PENDING, TaskStatus.CANCELLED),
         (TaskStatus.PENDING, TaskStatus.EXPIRED),
+        (TaskStatus.PENDING, TaskStatus.CLOSED_BY_ADMIN),
         (TaskStatus.IN_PROGRESS, TaskStatus.PENDING_REVIEW),
         (TaskStatus.IN_PROGRESS, TaskStatus.PENDING),
         (TaskStatus.IN_PROGRESS, TaskStatus.DISPUTED),

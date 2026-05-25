@@ -1,9 +1,8 @@
 {
-  "//": "文件说明：这是前端 TypeScript 总配置入口，采用分文件配置方式，让 A 同学可以分别扩展浏览器端和工具端配置。",
+  "//": "文件说明：这是前端 TypeScript 总配置入口，采用分文件配置方式管理浏览器端和工具端配置。",
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
   ]
 }
-

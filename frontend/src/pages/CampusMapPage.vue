@@ -176,8 +176,9 @@ function confirmPick() {
   if (!mapStore.pickedLat || !mapStore.pickedLng) return;
   const lat = mapStore.pickedLat;
   const lng = mapStore.pickedLng;
+  const buildingCode = mapStore.pickedBuildingCode || "";
   mapStore.leavePickerMode();
-  router.replace({ path: "/tasks/new", query: { lat: String(lat), lng: String(lng) } });
+  router.replace({ path: "/tasks/new", query: { lat: String(lat), lng: String(lng), buildingCode } });
 }
 
 function cancelPick() {

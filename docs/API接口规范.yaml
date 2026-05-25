@@ -6,9 +6,8 @@ info:
   description: |
     CampusMast 第三阶段接口规范。
 
-    当前项目仍处于联调收口期，接口契约采用“代码实现 + 本文档同步校准”的方式维护；
-    最终验收前再冻结为正式 OpenAPI 契约。任何影响字段名、状态机、错误码或 WebSocket
-    事件的变更，仍需由组长确认后再落库到本文档。
+    当前项目基线为本地测试 / 本地验收版，接口契约采用“代码实现 + 本文档同步校准”的方式维护。
+    任何影响字段名、状态机、错误码或 WebSocket 事件的变更，都应同步更新本文档。
 
     约定如下：
     - 所有 JSON 字段名使用 camelCase
@@ -18,13 +17,11 @@ info:
     - 时间戳统一使用 ISO 8601
     - 除注册、登录、刷新令牌外，所有 HTTP 接口都需要 JWT
     - 实时通知与任务内聊天统一通过 `WebSocket`
-    - AI 审核最终口径为“真实 DeepSeek + 关键词兜底”
+    - AI 审核最终口径为“敏感词预检 + DeepSeek 初审 + 人工复审”：先用本地敏感词直接拦截；未命中时 DeepSeek 返回 accept/reject/refuse；refuse 允许发布但进入人工复审；未配置或失败时按 refuse/MEDIUM 兜底
 
 servers:
   - url: http://localhost:9000
-    description: 本地开发环境
-  - url: https://api.campusmast.example.com
-    description: 生产环境
+    description: 本地验收环境
 
 tags:
   - name: Auth
@@ -233,6 +230,42 @@ paths:
                       data:
                         $ref: "#/components/schemas/User"
 
+  /api/auth/me/password:
+    put:
+      operationId: changeCurrentUserPassword
+      tags: [Auth]
+      summary: 当前登录用户修改密码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        "200":
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/tasks:
     post:
       operationId: createTask
@@ -244,7 +277,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [title, description, category, reward, deadline, buildingCode]
+              required: [title, description, category, reward, deadline]
               properties:
                 title:
                   type: string
@@ -262,6 +295,13 @@ paths:
                   format: date-time
                 buildingCode:
                   type: string
+                  description: 楼宇编码；地图选点场景可由 latitude/longitude 兜底推断最近楼宇。
+                latitude:
+                  type: number
+                  description: 地图选点纬度，用于缺少 buildingCode 时推断最近楼宇。
+                longitude:
+                  type: number
+                  description: 地图选点经度，用于缺少 buildingCode 时推断最近楼宇。
                 locationDetail:
                   type: string
                   maxLength: 200
@@ -309,11 +349,27 @@ paths:
           in: query
           schema:
             type: string
+          description: 未提供用户选点坐标时，距离排序以该楼宇中心点为原点
+        - name: userLatitude
+          in: query
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+          description: 演示环境推荐使用的用户选点纬度；与 userLongitude 同时传入时优先作为距离排序原点
+        - name: userLongitude
+          in: query
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: 演示环境推荐使用的用户选点经度；与 userLatitude 同时传入时优先作为距离排序原点
         - name: sortBy
           in: query
           schema:
             type: string
-            enum: [newest, rewardDesc, rewardAsc, deadlineAsc, distanceAsc]
+            enum: [newest, rewardDesc, rewardAsc, deadlineAsc, distanceAsc, recommended]
+          description: distanceAsc 会返回 distanceMeters；recommended 会返回 recommendation 解释字段
       responses:
         "200":
           description: 分页任务列表
@@ -434,6 +490,36 @@ paths:
       operationId: rejectTask
       tags: [Task]
       summary: 拒绝验收并发起争议
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: 已发起争议
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TaskDetail"
+
+  /api/tasks/{id}/dispute:
+    patch:
+      operationId: disputeTask
+      tags: [Task]
+      summary: 进行中任务发起争议
       parameters:
         - $ref: "#/components/parameters/TaskId"
       requestBody:
@@ -590,6 +676,74 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/Rating"
+
+  /api/credit/profile/me:
+    get:
+      operationId: getMyCreditProfile
+      tags: [Credit]
+      summary: 获取我的信用档案与评价统计
+      responses:
+        "200":
+          description: 信用档案
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CreditProfile"
+
+  /api/credit/profile/{userId}:
+    get:
+      operationId: getUserCreditProfile
+      tags: [Credit]
+      summary: 获取指定用户信用档案与评价统计
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 信用档案
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CreditProfile"
+
+  /api/credit/ratings/{userId}:
+    get:
+      operationId: listReceivedRatings
+      tags: [Credit]
+      summary: 获取指定用户收到的评价
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 收到的评价列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Rating"
 
   /api/wallet/balance:
     get:
@@ -908,11 +1062,48 @@ paths:
                         items:
                           $ref: "#/components/schemas/NearbyTask"
 
+  /api/map/current-location:
+    get:
+      operationId: getCurrentLocation
+      tags: [Map]
+      summary: 解析当前用户位置
+      description: 演示环境优先使用用户选点；未传坐标时可用 buildingCode 或用户 defaultBuildingCode 解析楼宇中心点。
+      parameters:
+        - name: latitude
+          in: query
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+        - name: longitude
+          in: query
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+        - name: buildingCode
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 当前用户位置
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CurrentLocation"
+
   /api/recommendations/tasks:
     get:
       operationId: listRecommendedTasks
       tags: [Recommendation]
       summary: 获取智能推荐任务
+      description: 返回规则加权推荐结果，包含类别偏好、距离、履约成功率、活跃时间四项得分与推荐原因。
       responses:
         "200":
           description: 推荐列表
@@ -1109,6 +1300,7 @@ paths:
       operationId: adminReviewModerationRecord
       tags: [Admin]
       summary: 后台复审低危审核记录
+      description: approve 会清除任务待复审标记；reject 会将仍处于 PENDING 的任务下架为 CLOSED_BY_ADMIN、解冻赏金并写入任务日志。
       parameters:
         - $ref: "#/components/parameters/Id"
       requestBody:
@@ -1222,26 +1414,65 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
-  /api/upload/sign:
+  /api/admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [Admin]
+      summary: 获取后台统计数据
+      responses:
+        "200":
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties:
+                          type: integer
+
+  /api/admin/ws/connections:
+    get:
+      operationId: adminGetWsConnections
+      tags: [Admin]
+      summary: 获取 WebSocket 连接快照
+      responses:
+        "200":
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        description: 当前 WebSocket 连接、用户与任务房间快照。
+
+  /api/upload/images:
     post:
-      operationId: getUploadSignedUrl
+      operationId: uploadTaskImage
       tags: [Upload]
-      summary: 获取 OSS 预签名上传地址
+      summary: 本地上传任务图片
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               type: object
-              required: [filename, contentType]
+              required: [file]
               properties:
-                filename:
+                file:
                   type: string
-                contentType:
-                  type: string
+                  format: binary
+                  description: JPG 或 PNG 图片，单张不超过 5MB。
       responses:
-        "200":
-          description: 地址生成成功
+        "201":
+          description: 上传成功
           content:
             application/json:
               schema:
@@ -1252,9 +1483,6 @@ paths:
                       data:
                         type: object
                         properties:
-                          uploadUrl:
-                            type: string
-                            format: uri
                           fileKey:
                             type: string
                           fileUrl:
@@ -1495,6 +1723,14 @@ components:
           $ref: "#/components/schemas/ModerationResult"
         needsAdminReview:
           type: boolean
+        distanceMeters:
+          type: number
+          nullable: true
+          description: 当请求传入用户选点或 nearBuildingCode 时返回，表示任务点到排序原点的米级距离
+        recommendation:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RecommendationSummary"
         createdAt:
           type: string
           format: date-time
@@ -1587,6 +1823,20 @@ components:
           type: string
           format: date-time
 
+    CreditProfile:
+      type: object
+      properties:
+        requesterCreditScore:
+          type: number
+        helperCreditScore:
+          type: number
+        overallCreditScore:
+          type: number
+        ratingCount:
+          type: integer
+        averageRating:
+          type: number
+
     Notification:
       type: object
       properties:
@@ -1659,6 +1909,22 @@ components:
             items:
               type: number
 
+    CurrentLocation:
+      type: object
+      properties:
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        buildingCode:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [SELECTED_POINT, BUILDING, UNSET]
+
     NearbyTask:
       allOf:
         - $ref: "#/components/schemas/Task"
@@ -1682,6 +1948,27 @@ components:
           type: number
         scoreActiveTime:
           type: number
+        recommendation:
+          $ref: "#/components/schemas/RecommendationSummary"
+
+    RecommendationSummary:
+      type: object
+      properties:
+        scoreTotal:
+          type: number
+        reason:
+          type: string
+        signals:
+          type: object
+          properties:
+            category:
+              type: number
+            distance:
+              type: number
+            successRate:
+              type: number
+            activeTime:
+              type: number
 
     ModerationRecord:
       type: object
@@ -1702,6 +1989,17 @@ components:
           type: array
           items:
             type: string
+        aiResult:
+          type: string
+          nullable: true
+          enum: [accept, reject, refuse, sensitive_keyword_block]
+        riskHint:
+          type: string
+          nullable: true
+          enum: [LOW, MEDIUM, HIGH]
+        modelOutput:
+          type: string
+          nullable: true
         adminReviewStatus:
           $ref: "#/components/schemas/AdminReviewStatus"
         adminReviewNote:
@@ -1710,6 +2008,10 @@ components:
         createdAt:
           type: string
           format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
 
     ConfigItem:
       type: object

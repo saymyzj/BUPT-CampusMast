@@ -17,6 +17,7 @@ from app.services.task_service import (
     cancel_task,
     confirm_task,
     create_task as create_task_service,
+    dispute_in_progress_task,
     get_task_by_id,
     list_pending_tasks,
     list_user_tasks,
@@ -51,8 +52,11 @@ def list_tasks(
     keyword: str | None = Query(None),
     buildingCode: str | None = Query(None),
     nearBuildingCode: str | None = Query(None),
-    sortBy: str | None = Query(None, pattern="^(newest|rewardDesc|rewardAsc|deadlineAsc|distanceAsc)$"),
+    userLatitude: float | None = Query(None, ge=-90, le=90),
+    userLongitude: float | None = Query(None, ge=-180, le=180),
+    sortBy: str | None = Query(None, pattern="^(newest|rewardDesc|rewardAsc|deadlineAsc|distanceAsc|recommended)$"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
         rows, total = list_pending_tasks(
@@ -63,7 +67,10 @@ def list_tasks(
             keyword=keyword,
             building_code=buildingCode,
             near_building_code=nearBuildingCode,
+            user_latitude=userLatitude,
+            user_longitude=userLongitude,
             sort_by=sortBy,
+            current_user_id=current_user.id,
         )
     except TaskError as exc:
         return _error_response(exc)
@@ -79,6 +86,8 @@ def create_task(
     try:
         task = create_task_service(db, current_user.id, payload)
     except TaskError as exc:
+        if exc.code == "MODERATION_BLOCKED":
+            return _error_response(exc, status.HTTP_422_UNPROCESSABLE_ENTITY)
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))
 
@@ -128,7 +137,11 @@ def list_my_accepted_tasks(
 
 
 @router.get("/{task_id}")
-def get_task(task_id: str, db: Session = Depends(get_db)) -> dict:
+def get_task(
+    task_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
     try:
         task = get_task_by_id(db, task_id)
     except TaskError as exc:
@@ -185,6 +198,20 @@ def reject_task_route(
 ) -> dict:
     try:
         task = reject_task(db, task_id, current_user.id, payload.reason)
+    except TaskError as exc:
+        return _error_response(exc)
+    return success(task_to_dict(db, task, include_logs=True))
+
+
+@router.patch("/{task_id}/dispute")
+def dispute_task_route(
+    task_id: str,
+    payload: TaskRejectRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    try:
+        task = dispute_in_progress_task(db, task_id, current_user.id, payload.reason)
     except TaskError as exc:
         return _error_response(exc)
     return success(task_to_dict(db, task, include_logs=True))

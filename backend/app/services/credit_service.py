@@ -363,7 +363,12 @@ def rate_task_partner(db: Session, task_id: str, from_user_id: str, payload) -> 
 
 
 def list_received_ratings(db: Session, user_id: str) -> list[Rating]:
-    return db.execute(select(Rating).where(Rating.to_user_id == user_id)).scalars().all()
+    _load_user(db, user_id)
+    return (
+        db.execute(select(Rating).where(Rating.to_user_id == user_id).order_by(Rating.created_at.desc()))
+        .scalars()
+        .all()
+    )
 
 
 def credit_profile_to_dict(user: User) -> dict:
@@ -376,6 +381,14 @@ def credit_profile_to_dict(user: User) -> dict:
 
 def get_credit_profile(db: Session, user_id: str) -> dict:
     return credit_profile_to_dict(_load_user(db, user_id))
+
+
+def get_credit_profile_with_stats(db: Session, user_id: str) -> dict:
+    profile = get_credit_profile(db, user_id)
+    ratings = list_received_ratings(db, user_id)
+    profile["ratingCount"] = len(ratings)
+    profile["averageRating"] = round(float(sum(rating.score for rating in ratings) / len(ratings)), 2) if ratings else 0.0
+    return profile
 
 
 def recalculate_user_credit(db: Session, user_id: str, *, commit: bool = True) -> dict:

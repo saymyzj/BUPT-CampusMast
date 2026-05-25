@@ -8,12 +8,12 @@ from app.config import settings
 from app.models.chat import ChatConversation, ChatMessage, ChatParticipant
 from app.models.config import HomepageBlock, SystemConfig
 from app.models.enums import AdminReviewStatus, HomepageBlockType, ModerationResult, Role, TaskCategory, TaskStatus
-from app.models.map import CampusBuilding
 from app.models.moderation import ModerationRecord
 from app.models.notification import Notification
 from app.models.task import Task
 from app.models.user import User, UserProfile
 from app.models.wallet import Wallet
+from app.osm_buildings import seed_default_buildings
 from app.utils.ids import generate_id
 from app.utils.security import hash_password
 from app.utils.serialization import json_dumps
@@ -83,35 +83,7 @@ def _ensure_user(db: Session, *, email: str, nickname: str, password: str, role:
 
 
 def _ensure_buildings(db: Session) -> None:
-    rows = [
-        {
-            "code": "BUPT_MAIN",
-            "name": "北邮主楼",
-            "campus_zone": "校本部",
-            "latitude": 39.96003,
-            "longitude": 116.35097,
-            "polygon_json": json_dumps([[39.96010, 116.35075], [39.95982, 116.35118], [39.95960, 116.35095]]),
-        },
-        {
-            "code": "BUPT_LIBRARY",
-            "name": "图书馆",
-            "campus_zone": "校本部",
-            "latitude": 39.96088,
-            "longitude": 116.35217,
-            "polygon_json": None,
-        },
-        {
-            "code": "BUPT_DORM_10",
-            "name": "学生10号公寓",
-            "campus_zone": "宿舍区",
-            "latitude": 39.95844,
-            "longitude": 116.35165,
-            "polygon_json": None,
-        },
-    ]
-    for payload in rows:
-        if db.get(CampusBuilding, payload["code"]) is None:
-            db.add(CampusBuilding(**payload, is_active=True))
+    seed_default_buildings(db)
 
 
 def _ensure_demo_task(db: Session, requester_id: str, helper_id: str) -> Task:

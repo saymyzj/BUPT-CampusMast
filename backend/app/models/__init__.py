@@ -1,7 +1,7 @@
 """
 文件说明：
 这是模型包出口文件。
-集中导入所有 ORM 模型，方便 Alembic 和应用启动时一次性加载元数据。
+集中导入所有 ORM 模型，方便本地初始化和应用启动时一次性加载元数据。
 """
 from app.models.chat import ChatConversation, ChatMessage, ChatParticipant
 from app.models.config import HomepageBlock, SystemConfig

@@ -1,20 +1,13 @@
 """
 文件说明：
 这是上传模块的 Schema 文件。
-组长后续应在 OSS 直传方案稳定后，把真实签名返回结构继续补到这里。
+本地验收版直接把任务图片保存到后端 uploads 目录，并返回可访问地址。
 """
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
-class UploadSignRequest(BaseModel):
-    filename: str
-    contentType: str
-
-
-class UploadSignResponse(BaseModel):
-    uploadUrl: str
+class UploadResponse(BaseModel):
     fileKey: str
     fileUrl: str
-

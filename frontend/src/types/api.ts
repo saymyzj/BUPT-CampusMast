@@ -210,6 +210,14 @@ export interface Rating {
   createdAt: string;
 }
 
+export interface CreditProfile {
+  requesterCreditScore: number;
+  helperCreditScore: number;
+  overallCreditScore: number;
+  ratingCount: number;
+  averageRating: number;
+}
+
 // ===== 钱包相关 =====
 export interface TopUpRequest {
   amount: string;
@@ -276,11 +284,13 @@ export interface MarkConversationReadRequest {
 // ===== 地图相关 =====
 export interface CampusBuilding {
   code: string;
+  osmType?: string | null;
+  osmId?: string | null;
   name: string;
-  campusZone: string;
+  campusZone: string | null;
   latitude: number;
   longitude: number;
-  polygon?: number[][] | null;
+  polygon?: number[][] | number[][][] | null;
 }
 
 export interface NearbyTask extends Task {
@@ -362,13 +372,7 @@ export interface HomepageBlockUpsert {
 }
 
 // ===== 上传 =====
-export interface GetUploadSignedUrlRequest {
-  filename: string;
-  contentType: string;
-}
-
-export interface UploadSignedUrlData {
-  uploadUrl: string;
+export interface UploadImageData {
   fileKey: string;
   fileUrl: string;
 }

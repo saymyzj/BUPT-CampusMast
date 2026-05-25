@@ -1,5 +1,5 @@
 {
-  "_comment": "文件说明：这是前端脚手架的包定义文件，包含 Vue 3、Vite、TypeScript、Pinia、Axios、Tailwind、DaisyUI、MSW 等冻结技术栈。A 同学应在此基础上继续填充业务页面和交互逻辑，不要随意替换主栈。",
+  "_comment": "文件说明：这是本地验收版前端包定义文件，包含 Vue 3、Vite、TypeScript、Pinia、Axios、Tailwind、DaisyUI 等技术栈。",
   "name": "campusmast-frontend",
   "private": true,
   "version": "0.1.0",
@@ -26,7 +26,6 @@
     "@vue/tsconfig": "^0.7.0",
     "autoprefixer": "^10.4.20",
     "daisyui": "^4.12.24",
-    "msw": "^2.7.3",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",

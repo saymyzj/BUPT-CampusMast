@@ -2,7 +2,7 @@
   文件说明：
   这是前端应用的 HTML 入口文件。
   当前只负责挂载 Vue 应用根节点和基础 meta 信息；
-  A 同学后续不应在这里堆业务内容，而应把所有页面内容放到 src/ 下维护。
+  页面内容统一放到 src/ 下维护。
 -->
 <!doctype html>
 <html lang="zh-CN">
@@ -10,7 +10,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CampusMast</title>
-    <!-- TODO: 生产环境应本地打包字体文件到 src/assets/fonts/ -->
+    <!-- 本地验收版直接使用在线字体；离线验收时可再放入 src/assets/fonts/。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -20,4 +20,3 @@
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
-

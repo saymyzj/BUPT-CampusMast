@@ -1,7 +1,7 @@
 """
 文件说明：
 这是系统配置与首页内容配置模型文件。
-组长后续会在管理后台通过这两个模型维护接单门槛、信用权重、审核阈值和首页内容。
+管理后台通过这两个模型维护接单门槛、信用权重、审核阈值和首页内容。
 """
 from __future__ import annotations
 
@@ -35,4 +35,3 @@ class HomepageBlock(Base):
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     updated_by: Mapped[str | None] = mapped_column(String(25), ForeignKey("users.id"))
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
-

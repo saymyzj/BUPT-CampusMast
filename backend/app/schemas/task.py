@@ -14,7 +14,9 @@ class TaskCreateRequest(BaseModel):
     category: str
     reward: str
     deadline: str
-    buildingCode: str
+    buildingCode: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     locationDetail: str | None = None
     imageUrls: list[str] = []
 
@@ -42,11 +44,15 @@ class TaskResponse(BaseModel):
     reward: str
     status: str
     buildingCode: str
+    latitude: float | None = None
+    longitude: float | None = None
     locationDetail: str | None = None
     requester: UserSummary
     helper: UserSummary | None = None
     moderationResult: str
     needsAdminReview: bool
+    distanceMeters: float | None = None
+    recommendation: dict | None = None
 
 
 class TaskLogResponse(BaseModel):
@@ -62,4 +68,3 @@ class TaskDetailResponse(TaskResponse):
     proofNote: str | None = None
     proofImageUrls: list[str] = []
     logs: list[TaskLogResponse] = []
-

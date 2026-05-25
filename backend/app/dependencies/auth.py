@@ -1,8 +1,7 @@
 """
 文件说明：
 这是鉴权依赖文件。
-当前只提供最小的当前用户和管理员依赖占位，后续组长可在此补齐 JWT 校验、
-用户查询和 WebSocket 鉴权逻辑。
+这里集中提供当前用户、管理员和 WebSocket 鉴权依赖。
 """
 from __future__ import annotations
 

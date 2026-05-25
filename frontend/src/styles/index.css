@@ -1,7 +1,7 @@
 /*
  * 文件说明：
  * 这是前端全局样式入口，统一引入 Tailwind 的 base/components/utilities。
- * A 同学若要补充页面级全局变量、基础字号或背景样式，可优先放在这里。
+ * 页面级全局变量、基础字号和背景样式统一放在这里。
  */
 @tailwind base;
 @tailwind components;
@@ -20,4 +20,3 @@ body {
     linear-gradient(180deg, #f8fbff 0%, #ffffff 45%, #f7fafc 100%);
   color: #0f172a;
 }
-

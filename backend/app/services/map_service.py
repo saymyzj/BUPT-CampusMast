@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.map import CampusBuilding
 from app.models.task import Task
-from app.models.user import User
+from app.models.user import User, UserProfile
 from app.utils.errors import AppError
 from app.utils.serialization import decimal_to_money, json_loads
 
@@ -45,6 +45,8 @@ def list_nearby_tasks(db: Session, *, building_code: str, limit: int) -> list[di
                 "reward": decimal_to_money(task.reward),
                 "status": task.status.value if hasattr(task.status, "value") else task.status,
                 "buildingCode": task.building_code,
+                "latitude": float(task.latitude) if task.latitude is not None else None,
+                "longitude": float(task.longitude) if task.longitude is not None else None,
                 "locationDetail": task.location_detail,
                 "requester": _serialize_user_summary(db.get(User, task.requester_id), task.requester_id),
                 "helper": (
@@ -60,9 +62,40 @@ def list_nearby_tasks(db: Session, *, building_code: str, limit: int) -> list[di
     return sorted(result, key=lambda item: item["distanceScore"])[:limit]
 
 
+def resolve_current_location(
+    db: Session,
+    *,
+    user: User,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    building_code: str | None = None,
+) -> dict[str, Any]:
+    if latitude is not None and longitude is not None:
+        return {"latitude": latitude, "longitude": longitude, "buildingCode": building_code, "source": "SELECTED_POINT"}
+
+    code = building_code
+    if not code:
+        profile = db.get(UserProfile, user.id)
+        code = profile.default_building_code if profile else None
+    if code:
+        building = db.get(CampusBuilding, code)
+        if building is None:
+            raise AppError("BUILDING_NOT_FOUND", "楼宇不存在", status.HTTP_404_NOT_FOUND)
+        return {
+            "latitude": float(building.latitude),
+            "longitude": float(building.longitude),
+            "buildingCode": building.code,
+            "source": "BUILDING",
+        }
+
+    return {"latitude": None, "longitude": None, "buildingCode": None, "source": "UNSET"}
+
+
 def serialize_building(row: CampusBuilding) -> dict[str, Any]:
     return {
         "code": row.code,
+        "osmType": row.osm_type,
+        "osmId": row.osm_id,
         "name": row.name,
         "campusZone": row.campus_zone,
         "latitude": row.latitude,

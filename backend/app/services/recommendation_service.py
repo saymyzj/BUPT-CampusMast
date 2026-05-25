@@ -219,6 +219,41 @@ def _snapshot(db: Session, user_id: str, task: Task, scores: dict[str, Decimal])
     )
 
 
+def _recommendation_reason(scores: dict[str, Decimal]) -> str:
+    signals = [
+        ("类别偏好", scores["scoreCategory"]),
+        ("距离", scores["scoreDistance"]),
+        ("履约成功率", scores["scoreSuccessRate"]),
+        ("活跃时间", scores["scoreActiveTime"]),
+    ]
+    top = sorted(signals, key=lambda item: item[1], reverse=True)[:2]
+    return "、".join(label for label, score in top if score > 0) or "基础推荐规则"
+
+
+def _recommendation_payload(scores: dict[str, Decimal]) -> dict:
+    return {
+        "scoreTotal": float(scores["scoreTotal"]),
+        "reason": _recommendation_reason(scores),
+        "signals": {
+            "category": float(scores["scoreCategory"]),
+            "distance": float(scores["scoreDistance"]),
+            "successRate": float(scores["scoreSuccessRate"]),
+            "activeTime": float(scores["scoreActiveTime"]),
+        },
+    }
+
+
+def _score_task(db: Session, user_id: str, task: Task, profile: UserProfile | None, weights: dict[str, Decimal]) -> dict[str, Decimal]:
+    scores = {
+        "scoreCategory": _category_score(task, profile, weights["category"]),
+        "scoreDistance": _distance_score(db, task, profile, weights["distance"]),
+        "scoreSuccessRate": _success_rate_score(db, user_id, profile, weights["successRate"]),
+        "scoreActiveTime": _active_time_score(task, profile, weights["activeTime"]),
+    }
+    scores["scoreTotal"] = _score(sum(scores.values(), Decimal("0.00")))
+    return scores
+
+
 def _item(db: Session, task: Task, scores: dict[str, Decimal]) -> dict:
     return {
         "task": task_to_dict(db, task),
@@ -227,7 +262,15 @@ def _item(db: Session, task: Task, scores: dict[str, Decimal]) -> dict:
         "scoreDistance": float(scores["scoreDistance"]),
         "scoreSuccessRate": float(scores["scoreSuccessRate"]),
         "scoreActiveTime": float(scores["scoreActiveTime"]),
+        "recommendation": _recommendation_payload(scores),
     }
+
+
+def build_recommendation_item(db: Session, user_id: str, task: Task) -> dict:
+    _load_user(db, user_id)
+    profile = _profile(db, user_id)
+    weights = _weights(db)
+    return _item(db, task, _score_task(db, user_id, task, profile, weights))
 
 
 def list_recommended_tasks(db: Session, user_id: str, *, limit: int = 20) -> list[dict]:
@@ -245,13 +288,7 @@ def list_recommended_tasks(db: Session, user_id: str, *, limit: int = 20) -> lis
     )
     ranked: list[tuple[Task, dict[str, Decimal]]] = []
     for task in tasks:
-        scores = {
-            "scoreCategory": _category_score(task, profile, weights["category"]),
-            "scoreDistance": _distance_score(db, task, profile, weights["distance"]),
-            "scoreSuccessRate": _success_rate_score(db, user_id, profile, weights["successRate"]),
-            "scoreActiveTime": _active_time_score(task, profile, weights["activeTime"]),
-        }
-        scores["scoreTotal"] = _score(sum(scores.values(), Decimal("0.00")))
+        scores = _score_task(db, user_id, task, profile, weights)
         ranked.append((task, scores))
     ranked.sort(key=lambda row: (row[1]["scoreTotal"], row[0].created_at or datetime.min, row[0].id), reverse=True)
     selected = ranked[:limit]

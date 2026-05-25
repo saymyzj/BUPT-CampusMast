@@ -189,7 +189,7 @@ def freeze_funds(
     amount: str | Decimal,
     *,
     related_task_id: str | None = None,
-    description: str = "任务赏金冻结",
+    description: str = "Task reward frozen",
 ) -> Wallet:
     value = money(amount)
     _ensure_positive(value)
@@ -215,7 +215,7 @@ def unfreeze_funds(
     amount: str | Decimal,
     *,
     related_task_id: str | None = None,
-    description: str = "任务赏金解冻",
+    description: str = "Task reward unfrozen",
 ) -> Wallet:
     value = money(amount)
     _ensure_positive(value)
@@ -229,8 +229,8 @@ def unfreeze_funds(
         wallet,
         TransactionType.UNFREEZE,
         value,
-        related_task_id=related_task_id,
-        description=description,
+            related_task_id=related_task_id,
+            description=description,
     )
     return wallet
 
@@ -260,7 +260,7 @@ def settle_reward(
             value,
             related_task_id=related_task_id,
             settlement_key=related_task_id,
-            description="任务赏金结算给接单人",
+            description="Task reward settled out to helper",
         )
 
         helper_wallet.available = money(Decimal(str(helper_wallet.available)) + value)
@@ -270,7 +270,7 @@ def settle_reward(
             TransactionType.SETTLE_IN,
             value,
             related_task_id=related_task_id,
-            description="收到发布者任务赏金",
+            description="Task reward settled in from requester",
         )
         return requester_wallet, helper_wallet
     except IntegrityError as exc:
@@ -319,8 +319,8 @@ def settle_split(
             related_task_id=related_task_id,
             settlement_key=related_task_id,
             description=(
-                f"任务争议分账：扣除冻结赏金 {money_text(value)}，"
-                f"发布者退回 {money_text(requester_share)}"
+                f"Task reward split: frozen consumed {money_text(value)}, "
+                f"requester refund {money_text(requester_share)}"
             ),
         )
 
@@ -332,7 +332,7 @@ def settle_split(
                 TransactionType.SETTLE_SPLIT,
                 helper_share,
                 related_task_id=related_task_id,
-                description=f"任务争议分账：接单人获得 {money_text(helper_share)}",
+                description=f"Task reward split: helper payout {money_text(helper_share)}",
             )
         return requester_wallet, helper_wallet
     except IntegrityError as exc:

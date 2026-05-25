@@ -12,6 +12,8 @@ from app.schemas.task import TaskResponse
 
 class CampusBuildingResponse(BaseModel):
     code: str
+    osmType: str | None = None
+    osmId: str | None = None
     name: str
     campusZone: str | None = None
     latitude: float
@@ -21,3 +23,10 @@ class CampusBuildingResponse(BaseModel):
 
 class NearbyTaskResponse(TaskResponse):
     distanceScore: float
+
+
+class CurrentLocationResponse(BaseModel):
+    latitude: float | None = None
+    longitude: float | None = None
+    buildingCode: str | None = None
+    source: str

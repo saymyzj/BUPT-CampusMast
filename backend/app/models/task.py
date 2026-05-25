@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,6 +29,8 @@ class Task(Base):
     reward: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[TaskStatus] = mapped_column(Enum(TaskStatus), default=TaskStatus.PENDING, nullable=False)
     building_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7))
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7))
     location_detail: Mapped[str | None] = mapped_column(String(200))
     deadline: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     image_urls: Mapped[str | None] = mapped_column(Text)

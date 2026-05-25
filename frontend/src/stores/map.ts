@@ -46,6 +46,31 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+function isCoordinatePair(value: unknown): value is number[] {
+  return Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number";
+}
+
+function pointInRing(lat: number, lng: number, ring: number[][]): boolean {
+  if (ring.length < 3) return false;
+  let inside = false;
+  let j = ring.length - 1;
+  for (let i = 0; i < ring.length; i += 1) {
+    const [yi, xi] = ring[i];
+    const [yj, xj] = ring[j];
+    const intersects = xi > lng !== xj > lng && lat < ((yj - yi) * (lng - xi)) / (xj - xi) + yi;
+    if (intersects) inside = !inside;
+    j = i;
+  }
+  return inside;
+}
+
+function buildingContainsPoint(building: CampusBuilding, lat: number, lng: number): boolean {
+  const polygon = building.polygon;
+  if (!Array.isArray(polygon) || polygon.length === 0) return false;
+  if (isCoordinatePair(polygon[0])) return pointInRing(lat, lng, polygon as number[][]);
+  return (polygon as number[][][]).some((ring) => pointInRing(lat, lng, ring));
+}
+
 function computeTimeLeft(deadline: string): string {
   const diff = new Date(deadline).getTime() - Date.now();
   if (diff <= 0) return "已截止";
@@ -226,7 +251,9 @@ export const useMapStore = defineStore("map", () => {
   function pickPoint(lat: number, lng: number, label: string) {
     pickedLat.value = lat;
     pickedLng.value = lng;
-    pickedLabel.value = label;
+    const nearest = findNearestBuilding(lat, lng);
+    pickedBuildingCode.value = nearest?.code ?? null;
+    pickedLabel.value = nearest ? `${nearest.name}附近 (${lat.toFixed(5)}, ${lng.toFixed(5)})` : label;
   }
 
   function removeTask(id: string) {
@@ -252,6 +279,9 @@ export const useMapStore = defineStore("map", () => {
   }
 
   function findNearestBuilding(lat: number, lng: number): { code: string; name: string } | null {
+    const containing = buildings.value.find((building) => buildingContainsPoint(building, lat, lng));
+    if (containing) return { code: containing.code, name: containing.name };
+
     let minDist = Infinity;
     let nearest: { code: string; name: string } | null = null;
     for (const b of buildings.value) {

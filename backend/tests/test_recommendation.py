@@ -195,6 +195,9 @@ def test_recommendation_sorts_by_explainable_weighted_score(db_session) -> None:
     assert rows[0]["scoreDistance"] == 25.0
     assert rows[0]["scoreSuccessRate"] == 20.0
     assert rows[0]["scoreActiveTime"] == 25.0
+    assert rows[0]["recommendation"]["scoreTotal"] == 95.0
+    assert rows[0]["recommendation"]["signals"]["distance"] == 25.0
+    assert rows[0]["recommendation"]["reason"]
     assert rows[1]["scoreTotal"] == 20.0
 
 
@@ -282,6 +285,7 @@ def test_recommendation_weights_allow_partial_invalid_and_non_100_config(db_sess
         "scoreDistance",
         "scoreSuccessRate",
         "scoreActiveTime",
+        "recommendation",
     }
 
 
@@ -336,7 +340,10 @@ def test_recommendation_api_field_contract_does_not_drift(recommendation_api_cli
         "scoreDistance",
         "scoreSuccessRate",
         "scoreActiveTime",
+        "recommendation",
     }
+    assert set(item["recommendation"]) == {"scoreTotal", "reason", "signals"}
+    assert set(item["recommendation"]["signals"]) == {"category", "distance", "successRate", "activeTime"}
     assert set(item["task"]) >= {
         "id",
         "title",

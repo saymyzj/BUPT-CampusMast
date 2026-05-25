@@ -128,6 +128,8 @@ def serialize_task_for_admin(db: Session, task: Task) -> dict[str, Any]:
         "reward": decimal_to_money(task.reward),
         "status": task.status.value if hasattr(task.status, "value") else task.status,
         "buildingCode": task.building_code,
+        "latitude": float(task.latitude) if task.latitude is not None else None,
+        "longitude": float(task.longitude) if task.longitude is not None else None,
         "locationDetail": task.location_detail,
         "requester": {
             "id": task.requester_id,

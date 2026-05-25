@@ -10,6 +10,8 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/coverage/
+frontend/*.tsbuildinfo
+*.tsbuildinfo
 
 # Python / backend
 backend/.venv/
@@ -23,6 +25,7 @@ __pycache__/
 *.py[cod]
 backend/*.sqlite3
 backend/*.sqlite3-journal
+backend/uploads/
 
 # Environment files
 .env

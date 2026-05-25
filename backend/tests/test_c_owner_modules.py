@@ -44,18 +44,51 @@ def test_auth_register_login_refresh_and_profile_update(client) -> None:
     assert refresh_response.status_code == 200
     assert refresh_response.json()["data"]["accessToken"]
 
+    anonymous_password_response = client.put(
+        "/api/auth/me/password",
+        json={"currentPassword": "Password123", "newPassword": "NewPassword123"},
+    )
+    assert anonymous_password_response.status_code == 401
+
+    wrong_password_response = client.put(
+        "/api/auth/me/password",
+        headers=auth_headers(access_token),
+        json={"currentPassword": "wrong-password", "newPassword": "NewPassword123"},
+    )
+    assert wrong_password_response.status_code == 400
+
+    change_password_response = client.put(
+        "/api/auth/me/password",
+        headers=auth_headers(access_token),
+        json={"currentPassword": "Password123", "newPassword": "NewPassword123"},
+    )
+    assert change_password_response.status_code == 200
+
+    old_password_login_response = client.post(
+        "/api/auth/login",
+        json={"studentEmail": "new.user@bupt.edu.cn", "password": "Password123"},
+    )
+    assert old_password_login_response.status_code == 401
+
+    new_password_login_response = client.post(
+        "/api/auth/login",
+        json={"studentEmail": "new.user@bupt.edu.cn", "password": "NewPassword123"},
+    )
+    assert new_password_login_response.status_code == 200
+
 
 def test_upload_notification_map_and_moderation_flows(client) -> None:
     auth = login(client, "demo.user@bupt.edu.cn", "Demo123456")
     token = auth["accessToken"]
 
     upload_response = client.post(
-        "/api/upload/sign",
+        "/api/upload/images",
         headers=auth_headers(token),
-        json={"filename": "avatar.png", "contentType": "image/png"},
+        files={"file": ("avatar.png", b"fake-image", "image/png")},
     )
-    assert upload_response.status_code == 200
+    assert upload_response.status_code == 201
     assert upload_response.json()["data"]["fileKey"].startswith("uploads/")
+    assert "/uploads/" in upload_response.json()["data"]["fileUrl"]
 
     notifications_response = client.get("/api/notifications", headers=auth_headers(token))
     assert notifications_response.status_code == 200
@@ -74,6 +107,13 @@ def test_upload_notification_map_and_moderation_flows(client) -> None:
     buildings_response = client.get("/api/map/buildings", headers=auth_headers(token))
     assert buildings_response.status_code == 200
     assert buildings_response.json()["data"][0]["latitude"]
+
+    selected_location_response = client.get(
+        "/api/map/current-location?latitude=39.9601&longitude=116.3501",
+        headers=auth_headers(token),
+    )
+    assert selected_location_response.status_code == 200
+    assert selected_location_response.json()["data"]["source"] == "SELECTED_POINT"
 
     nearby_response = client.get("/api/map/tasks/nearby?buildingCode=BUPT_MAIN", headers=auth_headers(token))
     assert nearby_response.status_code == 200

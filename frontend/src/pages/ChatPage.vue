@@ -186,10 +186,10 @@
               </span>
               <span class="notice-copy">
                 <span class="notice-title-row">
-                  <strong>{{ notice.title }}</strong>
+                  <strong>{{ notificationTitle(notice) }}</strong>
                   <time>{{ formatNoticeTime(notice.createdAt) }}</time>
                 </span>
-                <span class="notice-body">{{ notice.body }}</span>
+                <span class="notice-body">{{ notificationBody(notice) }}</span>
                 <span class="notice-action">{{ notice.relatedTaskId ? "查看任务" : "查看详情" }}</span>
               </span>
               <i v-if="!notice.isRead" class="notice-dot"></i>
@@ -212,7 +212,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   createTaskChatMessage,
@@ -226,6 +226,7 @@ import AppIcon from "@/components/ui/AppIcon.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useNotificationStore } from "@/stores/notification";
 import { CATEGORY_COLORS } from "@/types/map";
+import { appEnv } from "@/utils/env";
 import { isTaskVisible } from "@/utils/taskVisibility";
 import type {
   ChatConversation,
@@ -263,6 +264,8 @@ const messageError = ref("");
 const notificationError = ref("");
 const notificationUnreadCount = ref(0);
 const messageBodyRef = ref<HTMLElement | null>(null);
+const chatSocket = ref<WebSocket | null>(null);
+const chatSocketTaskId = ref("");
 
 const hiddenConversationStatuses = new Set(["CANCELLED", "EXPIRED", "CLOSED_BY_ADMIN"]);
 const userId = computed(() => authStore.userId ?? "");
@@ -354,6 +357,22 @@ function conversationPreview(conversation: ChatConversation) {
   return conversation.latestMessage?.content || taskById.value[conversation.taskId]?.description || "暂无消息";
 }
 
+function upsertMessage(message: ChatMessage) {
+  const index = messages.value.findIndex((item) => item.id === message.id);
+  if (index >= 0) {
+    messages.value[index] = message;
+  } else {
+    messages.value.push(message);
+  }
+  const conversation = conversations.value.find((item) => item.taskId === message.taskId);
+  if (conversation) {
+    conversation.latestMessage = message;
+    if (message.senderId !== userId.value && activeConv.value?.id !== conversation.id) {
+      conversation.unreadCount += 1;
+    }
+  }
+}
+
 function avatarGradient(conversation: ChatConversation | null) {
   const task = conversation ? taskById.value[conversation.taskId] : activeTask.value;
   const base = categoryColor(task?.category);
@@ -393,8 +412,31 @@ function taskStatusText(status?: string) {
     PENDING_REVIEW: "待验收",
     COMPLETED: "已完成",
     DISPUTED: "争议中",
+    CANCELLED: "已取消",
+    EXPIRED: "已过期",
+    CLOSED_BY_ADMIN: "已关闭",
   };
   return status ? statusMap[status] ?? "进行中" : "进行中";
+}
+
+function notificationTitle(notice: Notification) {
+  if (!notice.title.startsWith("Task status")) return notice.title;
+  const titleMap: Partial<Record<NotificationType, string>> = {
+    TASK_ACCEPTED: "任务已被接单",
+    TASK_SUBMITTED: "任务待验收",
+    TASK_CONFIRMED: "任务已完成",
+    TASK_REJECTED: "验收未通过",
+    TASK_CANCELLED: "任务已取消",
+    TASK_DISPUTED: "任务进入争议",
+  };
+  return titleMap[notice.type] || "任务状态已更新";
+}
+
+function notificationBody(notice: Notification) {
+  if (!notice.body.startsWith("Task ")) return notice.body;
+  const status = notice.body.match(/status changed to ([A-Z_]+)/)?.[1];
+  const taskId = notice.relatedTaskId || notice.body.match(/Task ([^ ]+)/)?.[1] || "相关任务";
+  return status ? `${taskId} 状态已更新为「${taskStatusText(status)}」。` : `${taskId} 状态已更新。`;
 }
 
 function notificationIcon(type: NotificationType) {
@@ -464,6 +506,7 @@ async function openInitialConversation() {
 
 async function openConv(conversation: ChatConversation) {
   activeConv.value = conversation;
+  connectChatSocket(conversation.taskId);
   messages.value = [];
   messageError.value = "";
   messageLoading.value = true;
@@ -487,6 +530,42 @@ async function openConv(conversation: ChatConversation) {
   scrollToBottom();
 }
 
+function connectChatSocket(taskId: string) {
+  if (!taskId || chatSocketTaskId.value === taskId) return;
+  disconnectChatSocket();
+  chatSocketTaskId.value = taskId;
+  const token = sessionStorage.getItem("campusmast.accessToken") ?? "";
+  const socket = new WebSocket(`${appEnv.wsBaseUrl}/chat:${taskId}?accessToken=${encodeURIComponent(token)}`);
+  chatSocket.value = socket;
+  socket.onmessage = async (event) => {
+    let message: { event?: string; payload?: unknown };
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (message.event === "CHAT_MESSAGE" && message.payload) {
+      upsertMessage(message.payload as ChatMessage);
+      await nextTick();
+      if (activeConv.value?.taskId === taskId) scrollToBottom();
+    }
+  };
+  socket.onclose = () => {
+    if (chatSocketTaskId.value === taskId) {
+      chatSocket.value = null;
+    }
+  };
+}
+
+function disconnectChatSocket() {
+  chatSocketTaskId.value = "";
+  if (chatSocket.value) {
+    chatSocket.value.onclose = null;
+    chatSocket.value.close();
+    chatSocket.value = null;
+  }
+}
+
 async function loadNotifications() {
   notificationLoading.value = true;
   notificationError.value = "";
@@ -507,8 +586,7 @@ async function sendMessage() {
   sending.value = true;
   try {
     const message = await createTaskChatMessage(activeConv.value.taskId, { content });
-    messages.value.push(message);
-    activeConv.value.latestMessage = message;
+    upsertMessage(message);
     newMessage.value = "";
     await nextTick();
     scrollToBottom();
@@ -555,6 +633,7 @@ function goTaskDetail() {
 onMounted(async () => {
   await Promise.all([loadConversations(), loadNotifications()]);
 });
+onUnmounted(disconnectChatSocket);
 </script>
 
 <style scoped>

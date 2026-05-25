@@ -4,17 +4,14 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
-from app.config import settings
 from app.models import *  # noqa: F403
+from app.models.base import Base
 from app.models.enums import TaskStatus
 from app.models.task import Task
 from app.models.user import User
@@ -41,16 +38,12 @@ def _reset_mysql_schema(database_url: str) -> None:
         engine.dispose()
 
 
-def _upgrade_with_alembic(database_url: str) -> None:
-    backend_dir = Path(__file__).resolve().parents[1]
-    alembic_cfg = Config(str(backend_dir / "alembic.ini"))
-    alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
-    original_database_url = settings.database_url
-    settings.database_url = database_url
+def _create_schema(database_url: str) -> None:
+    engine = create_engine(database_url, future=True)
     try:
-        command.upgrade(alembic_cfg, "head")
+        Base.metadata.create_all(bind=engine)
     finally:
-        settings.database_url = original_database_url
+        engine.dispose()
 
 
 @pytest.fixture
@@ -58,7 +51,7 @@ def mysql_session_factory():
     engine = create_engine(MYSQL_TEST_URL, future=True, isolation_level="READ COMMITTED")
     engine.dispose()
     _reset_mysql_schema(MYSQL_TEST_URL)
-    _upgrade_with_alembic(MYSQL_TEST_URL)
+    _create_schema(MYSQL_TEST_URL)
     engine = create_engine(MYSQL_TEST_URL, future=True, isolation_level="READ COMMITTED")
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     try:
@@ -68,7 +61,7 @@ def mysql_session_factory():
         _reset_mysql_schema(MYSQL_TEST_URL)
 
 
-def test_mysql_alembic_upgrade_creates_frozen_constraints_and_indexes(mysql_session_factory) -> None:
+def test_mysql_model_schema_creates_frozen_constraints_and_indexes(mysql_session_factory) -> None:
     engine = mysql_session_factory.kw["bind"]
     inspector = inspect(engine)
 

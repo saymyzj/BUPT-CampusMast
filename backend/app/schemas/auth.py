@@ -1,7 +1,7 @@
 """
 文件说明：
 这是认证与用户资料相关的 Schema 文件。
-组长后续应把真实的认证返回、用户资料展示和前端联调字段继续补齐到这里。
+这里定义本地验收版认证返回、用户资料展示和前端联调字段。
 """
 from __future__ import annotations
 
@@ -23,8 +23,8 @@ class TokenRefreshRequest(BaseModel):
     refreshToken: str
 
 
-class PasswordResetRequest(BaseModel):
-    studentEmail: str
+class PasswordChangeRequest(BaseModel):
+    currentPassword: str
     newPassword: str
 
 

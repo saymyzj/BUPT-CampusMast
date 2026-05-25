@@ -247,6 +247,34 @@ def test_legacy_credit_rating_stub_endpoint_is_not_registered() -> None:
     assert response.status_code == 404
 
 
+def test_credit_profile_api_returns_scores_and_rating_stats(db_session) -> None:
+    app = FastAPI()
+    app.include_router(credit_router)
+    current_user = SimpleNamespace(id="requester", role="USER", nickname="requester")
+
+    def override_db():
+        yield db_session
+
+    def override_user():
+        return current_user
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+    task = completed_task(db_session)
+    rate_task_partner(db_session, task.id, "requester", rating_payload(5, "Great helper"))
+
+    with TestClient(app) as client:
+        response = client.get("/credit/profile/helper")
+        ratings_response = client.get("/credit/ratings/helper")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["helperCreditScore"] == 100.0
+    assert response.json()["data"]["ratingCount"] == 1
+    assert response.json()["data"]["averageRating"] == 5.0
+    assert ratings_response.status_code == 200
+    assert ratings_response.json()["data"][0]["toUserId"] == "helper"
+
+
 def test_credit_profile_service_returns_current_user_scores(db_session) -> None:
     add_user(db_session, "user")
 

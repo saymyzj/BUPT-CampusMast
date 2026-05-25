@@ -28,6 +28,7 @@ from app.services.wallet_service import (
 HELPER_CREDIT_THRESHOLD = Decimal("60.00")
 HELPER_CREDIT_THRESHOLD_CONFIG_KEY = "helperCreditThreshold"
 LEGACY_HELPER_CREDIT_THRESHOLD_CONFIG_KEY = "task.acceptance.helperCreditThreshold"
+EARTH_RADIUS_METERS = 6371000.0
 
 TRANSITION_RULES: dict[tuple[TaskStatus, TaskStatus], dict[str, str]] = {
     (TaskStatus.PENDING, TaskStatus.IN_PROGRESS): {
@@ -40,6 +41,10 @@ TRANSITION_RULES: dict[tuple[TaskStatus, TaskStatus], dict[str, str]] = {
     },
     (TaskStatus.PENDING, TaskStatus.EXPIRED): {
         "remark": "Task expired by system",
+        "event": "TASK_CANCELLED",
+    },
+    (TaskStatus.PENDING, TaskStatus.CLOSED_BY_ADMIN): {
+        "remark": "Task removed by admin",
         "event": "TASK_CANCELLED",
     },
     (TaskStatus.IN_PROGRESS, TaskStatus.PENDING_REVIEW): {
@@ -139,6 +144,62 @@ def _load_task(db: Session, task_id: str, *, for_update: bool = False) -> Task:
     return task
 
 
+def _point_in_polygon(latitude: float, longitude: float, polygon: list) -> bool:
+    if len(polygon) < 3:
+        return False
+    inside = False
+    j = len(polygon) - 1
+    for i, current in enumerate(polygon):
+        previous = polygon[j]
+        try:
+            yi, xi = float(current[0]), float(current[1])
+            yj, xj = float(previous[0]), float(previous[1])
+        except (TypeError, ValueError, IndexError):
+            return False
+        intersects = (xi > longitude) != (xj > longitude) and latitude < (yj - yi) * (longitude - xi) / (xj - xi) + yi
+        if intersects:
+            inside = not inside
+        j = i
+    return inside
+
+
+def _building_contains(building: CampusBuilding, latitude: float, longitude: float) -> bool:
+    if not building.polygon_json:
+        return False
+    try:
+        polygon = json.loads(building.polygon_json)
+    except (TypeError, json.JSONDecodeError):
+        return False
+    if not polygon:
+        return False
+    if polygon and isinstance(polygon[0], list) and polygon[0] and isinstance(polygon[0][0], (int, float, str)):
+        return _point_in_polygon(latitude, longitude, polygon)
+    return any(_point_in_polygon(latitude, longitude, ring) for ring in polygon if isinstance(ring, list))
+
+
+def _resolve_building_code(db: Session, payload) -> str:
+    building_code = (payload.buildingCode or "").strip()
+    if building_code:
+        return building_code
+
+    latitude = getattr(payload, "latitude", None)
+    longitude = getattr(payload, "longitude", None)
+    if latitude is None or longitude is None:
+        raise TaskError("TASK_LOCATION_REQUIRED", "Task buildingCode or map coordinates are required")
+
+    buildings = db.query(CampusBuilding).filter(CampusBuilding.is_active.is_(True)).all()
+    if not buildings:
+        raise TaskError("NO_ACTIVE_BUILDING", "未找到可用楼宇数据，请先初始化校园楼宇。")
+    for building in buildings:
+        if _building_contains(building, float(latitude), float(longitude)):
+            return building.code
+    nearest = min(
+        buildings,
+        key=lambda building: math.hypot(float(building.latitude) - float(latitude), float(building.longitude) - float(longitude)),
+    )
+    return nearest.code
+
+
 def _helper_credit_threshold(db: Session) -> Decimal:
     config = db.get(SystemConfig, HELPER_CREDIT_THRESHOLD_CONFIG_KEY)
     if config is None:
@@ -172,6 +233,18 @@ def _task_event_name(from_status: TaskStatus, to_status: TaskStatus) -> str:
 def _emit_task_event(_db: Session, _task: Task, _event_name: str) -> None:
     from app.services.notification_service import create_notification
 
+    templates = {
+        "TASK_ACCEPTED": ("任务已被接单", "任务「{title}」已被接单。"),
+        "TASK_CANCELLED": ("任务已取消", "任务「{title}」已取消或关闭。"),
+        "TASK_SUBMITTED": ("任务待验收", "接单人已提交任务「{title}」的完成证明。"),
+        "TASK_CONFIRMED": ("任务已完成", "任务「{title}」已确认完成。"),
+        "TASK_REJECTED": ("验收未通过", "任务「{title}」验收未通过，请继续沟通处理。"),
+        "TASK_DISPUTED": ("任务进入争议", "任务「{title}」进入争议处理。"),
+        "DISPUTE_RESOLVED": ("争议已处理", "任务「{title}」的争议已处理。"),
+    }
+    title, body = templates.get(_event_name, ("任务状态已更新", "任务「{title}」状态已更新为 {status}。"))
+    body = body.format(title=_task.title, status=_task.status.value)
+
     recipients = {_task.requester_id}
     if _task.helper_id is not None:
         recipients.add(_task.helper_id)
@@ -180,8 +253,8 @@ def _emit_task_event(_db: Session, _task: Task, _event_name: str) -> None:
             _db,
             user_id=user_id,
             type_=_event_name,
-            title="Task status updated",
-            body=f"Task {_task.id} status changed to {_task.status.value}",
+            title=title,
+            body=body,
             related_task_id=_task.id,
         )
 
@@ -237,7 +310,32 @@ def _ensure_chat_session(db: Session, task: Task) -> None:
             db.add(ChatParticipant(id=new_id("part"), conversation_id=conversation.id, user_id=user_id))
 
 
-def task_to_dict(db: Session, task: Task, *, include_logs: bool = False) -> dict:
+def _haversine_meters(
+    from_latitude: float | Decimal | None,
+    from_longitude: float | Decimal | None,
+    to_latitude: float | Decimal | None,
+    to_longitude: float | Decimal | None,
+) -> float | None:
+    if from_latitude is None or from_longitude is None or to_latitude is None or to_longitude is None:
+        return None
+    lat1 = math.radians(float(from_latitude))
+    lat2 = math.radians(float(to_latitude))
+    delta_lat = math.radians(float(to_latitude) - float(from_latitude))
+    delta_lng = math.radians(float(to_longitude) - float(from_longitude))
+    a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lng / 2) ** 2
+    return EARTH_RADIUS_METERS * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _task_point(db: Session, task: Task) -> tuple[float | Decimal | None, float | Decimal | None]:
+    if task.latitude is not None and task.longitude is not None:
+        return task.latitude, task.longitude
+    building = db.get(CampusBuilding, task.building_code) if task.building_code else None
+    if building is None:
+        return None, None
+    return building.latitude, building.longitude
+
+
+def task_to_dict(db: Session, task: Task, *, include_logs: bool = False, distance_meters: float | None = None) -> dict:
     requester = db.get(User, task.requester_id)
     helper = db.get(User, task.helper_id) if task.helper_id else None
     payload = {
@@ -248,6 +346,8 @@ def task_to_dict(db: Session, task: Task, *, include_logs: bool = False) -> dict
         "reward": money_text(task.reward),
         "status": task.status.value,
         "buildingCode": task.building_code,
+        "latitude": float(task.latitude) if task.latitude is not None else None,
+        "longitude": float(task.longitude) if task.longitude is not None else None,
         "locationDetail": task.location_detail,
         "deadline": task.deadline.isoformat() if task.deadline else None,
         "imageUrls": json.loads(task.image_urls or "[]"),
@@ -255,6 +355,7 @@ def task_to_dict(db: Session, task: Task, *, include_logs: bool = False) -> dict
         "helper": _user_summary(helper),
         "moderationResult": task.moderation_result.value,
         "needsAdminReview": task.needs_admin_review,
+        "distanceMeters": round(distance_meters, 1) if distance_meters is not None else None,
         "createdAt": task.created_at.isoformat() if task.created_at else "",
     }
     if include_logs:
@@ -292,22 +393,28 @@ def create_task(db: Session, requester_id: str, payload) -> Task:
     if deadline <= _now():
         raise TaskError("INVALID_TASK_DEADLINE", "Task deadline must be in the future")
     _load_user(db, requester_id)
-    from app.services.moderation_service import create_moderation_record, moderate_task_content
+    building_code = _resolve_building_code(db, payload)
+    from app.services.moderation_service import create_moderation_record, moderate_task_content, normalize_moderation_decision
 
-    moderation_result, hit_tags, model_output = moderate_task_content(
-        user_id=requester_id,
-        title=payload.title,
-        description=payload.description,
-        image_urls=payload.imageUrls or [],
+    moderation = normalize_moderation_decision(
+        moderate_task_content(
+            user_id=requester_id,
+            title=payload.title,
+            description=payload.description,
+            image_urls=payload.imageUrls or [],
+        )
     )
-    if moderation_result == ModerationResult.BLOCK:
+    if moderation.result == ModerationResult.BLOCK:
         create_moderation_record(
             db,
             user_id=requester_id,
             task_id=None,
-            risk_level=moderation_result,
-            hit_tags=hit_tags,
-            model_output=model_output,
+            risk_level=moderation.result,
+            hit_tags=moderation.hit_tags,
+            model_output=moderation.reason,
+            risk_hint=moderation.risk_hint,
+            ai_result=moderation.ai_result,
+            provider=moderation.provider,
         )
         db.commit()
         raise TaskError("MODERATION_BLOCKED", "Task content was blocked by moderation")
@@ -320,13 +427,15 @@ def create_task(db: Session, requester_id: str, payload) -> Task:
             category=_category(payload.category),
             reward=reward,
             status=TaskStatus.PENDING,
-            building_code=payload.buildingCode,
+            building_code=building_code,
+            latitude=getattr(payload, "latitude", None),
+            longitude=getattr(payload, "longitude", None),
             location_detail=payload.locationDetail,
             deadline=deadline,
             image_urls=json.dumps(payload.imageUrls or []),
             requester_id=requester_id,
-            moderation_result=moderation_result,
-            needs_admin_review=moderation_result == ModerationResult.REVIEW,
+            moderation_result=moderation.result,
+            needs_admin_review=moderation.result == ModerationResult.REVIEW,
         )
         db.add(task)
         db.flush()
@@ -334,12 +443,14 @@ def create_task(db: Session, requester_id: str, payload) -> Task:
             db,
             user_id=requester_id,
             task_id=task.id,
-            risk_level=moderation_result,
-            hit_tags=hit_tags,
-            model_output=model_output,
+            risk_level=moderation.result,
+            hit_tags=moderation.hit_tags,
+            model_output=moderation.reason,
+            risk_hint=moderation.risk_hint,
+            ai_result=moderation.ai_result,
+            provider=moderation.provider,
         )
         freeze_funds(db, requester_id, reward, related_task_id=task.id)
-        _log_transition(db, task, TaskStatus.PENDING, TaskStatus.PENDING, requester_id, "Task created and reward frozen")
         db.commit()
         db.refresh(task)
         return task
@@ -357,10 +468,35 @@ def _building_distance(db: Session, from_code: str | None, to_code: str | None) 
     target = db.get(CampusBuilding, to_code)
     if origin is None or target is None:
         return None
-    return math.dist(
-        (float(origin.latitude), float(origin.longitude)),
-        (float(target.latitude), float(target.longitude)),
-    )
+    return _haversine_meters(origin.latitude, origin.longitude, target.latitude, target.longitude)
+
+
+def _origin_from_building(db: Session, building_code: str | None) -> tuple[float | Decimal, float | Decimal] | None:
+    if not building_code:
+        return None
+    building = db.get(CampusBuilding, building_code)
+    if building is None:
+        return None
+    return building.latitude, building.longitude
+
+
+def _origin_point(
+    db: Session,
+    *,
+    user_latitude: float | None,
+    user_longitude: float | None,
+    near_building_code: str | None,
+) -> tuple[float | Decimal, float | Decimal] | None:
+    if user_latitude is not None and user_longitude is not None:
+        return user_latitude, user_longitude
+    return _origin_from_building(db, near_building_code)
+
+
+def _distance_from_origin(db: Session, task: Task, origin: tuple[float | Decimal, float | Decimal] | None) -> float | None:
+    if origin is None:
+        return None
+    task_latitude, task_longitude = _task_point(db, task)
+    return _haversine_meters(origin[0], origin[1], task_latitude, task_longitude)
 
 
 def _apply_task_sort(query, sort_by: str | None):
@@ -382,7 +518,10 @@ def list_pending_tasks(
     keyword: str | None = None,
     building_code: str | None = None,
     near_building_code: str | None = None,
+    user_latitude: float | None = None,
+    user_longitude: float | None = None,
     sort_by: str | None = None,
+    current_user_id: str | None = None,
 ) -> tuple[list[dict], int]:
     query = db.query(Task).filter(Task.status == TaskStatus.PENDING)
     if category:
@@ -392,13 +531,32 @@ def list_pending_tasks(
         query = query.filter(Task.title.like(keyword_pattern) | Task.description.like(keyword_pattern))
     if building_code:
         query = query.filter(Task.building_code == building_code)
+    if sort_by == "recommended" and current_user_id:
+        query = query.filter(Task.requester_id != current_user_id)
     total = query.count()
-    if sort_by == "distanceAsc" and near_building_code:
+    if sort_by == "recommended" and current_user_id:
+        from app.services.recommendation_service import build_recommendation_item
+
+        tasks = query.all()
+        ranked = [build_recommendation_item(db, current_user_id, task) for task in tasks]
+        ranked.sort(
+            key=lambda item: (
+                item["scoreTotal"],
+                item["task"]["createdAt"],
+                item["task"]["id"],
+            ),
+            reverse=True,
+        )
+        selected = ranked[(page - 1) * limit : page * limit]
+        return [item["task"] | {"recommendation": item["recommendation"]} for item in selected], total
+
+    origin = _origin_point(db, user_latitude=user_latitude, user_longitude=user_longitude, near_building_code=near_building_code)
+    if sort_by == "distanceAsc" and origin is not None:
         tasks = query.all()
         tasks.sort(
             key=lambda task: (
-                _building_distance(db, near_building_code, task.building_code) is None,
-                _building_distance(db, near_building_code, task.building_code) or 0.0,
+                _distance_from_origin(db, task, origin) is None,
+                _distance_from_origin(db, task, origin) or 0.0,
                 task.created_at or datetime.min,
                 task.id,
             )
@@ -406,7 +564,7 @@ def list_pending_tasks(
         tasks = tasks[(page - 1) * limit : page * limit]
     else:
         tasks = _apply_task_sort(query, sort_by).offset((page - 1) * limit).limit(limit).all()
-    return [task_to_dict(db, task) for task in tasks], total
+    return [task_to_dict(db, task, distance_meters=_distance_from_origin(db, task, origin)) for task in tasks], total
 
 
 def list_user_tasks(

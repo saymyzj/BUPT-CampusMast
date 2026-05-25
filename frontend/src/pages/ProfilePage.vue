@@ -82,7 +82,7 @@
           <article class="metric-card">
             <span>平均评分</span>
             <strong>{{ ratingText }}</strong>
-            <small>评价统计待后端提供</small>
+            <small>{{ ratingHint }}</small>
             <i><AppIcon name="star" /></i>
           </article>
         </section>
@@ -173,6 +173,13 @@
             </div>
           </label>
           <label>
+            <span>当前密码</span>
+            <div class="security-control">
+              <AppIcon name="lock" />
+              <input v-model="securityForm.currentPassword" type="password" placeholder="修改密码时填写" />
+            </div>
+          </label>
+          <label>
             <span>新密码</span>
             <div class="security-control">
               <AppIcon name="lock" />
@@ -199,10 +206,11 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { RouterLink } from "vue-router";
 import AppIcon from "@/components/ui/AppIcon.vue";
-import { resetPassword } from "@/api/modules/auth";
+import { changePassword } from "@/api/modules/auth";
+import { getMyCreditProfile } from "@/api/modules/credit";
 import { listMyAcceptedTasks, listMyPostedTasks } from "@/api/modules/task";
 import { useAuthStore } from "@/stores/auth";
-import type { Task, TaskCategory, TaskStatus } from "@/types/api";
+import type { CreditProfile, Task, TaskCategory, TaskStatus } from "@/types/api";
 
 const authStore = useAuthStore();
 const editing = ref(false);
@@ -215,9 +223,11 @@ const securityError = ref("");
 const securityOk = ref("");
 const postedTasks = ref<Task[]>([]);
 const acceptedTasks = ref<Task[]>([]);
+const creditProfile = ref<CreditProfile | null>(null);
 const edit = reactive({ nickname: "" });
 const securityForm = reactive({
   phone: "",
+  currentPassword: "",
   password: "",
   confirmPassword: "",
 });
@@ -237,8 +247,12 @@ const allTasks = computed(() => {
 });
 const recentTasks = computed(() => allTasks.value.slice(0, 4));
 const completedCount = computed(() => allTasks.value.filter((task) => task.status === "COMPLETED").length);
-const creditLabel = computed(() => (user.value.overallCreditScore >= 850 ? "优秀" : user.value.overallCreditScore >= 700 ? "良好" : "正常"));
-const ratingText = computed(() => (completedCount.value > 0 ? "待统计" : "--"));
+const creditLabel = computed(() => (user.value.overallCreditScore >= 90 ? "优秀" : user.value.overallCreditScore >= 75 ? "良好" : "正常"));
+const ratingText = computed(() => {
+  if (!creditProfile.value?.ratingCount) return "--";
+  return creditProfile.value.averageRating.toFixed(1);
+});
+const ratingHint = computed(() => (creditProfile.value?.ratingCount ? `${creditProfile.value.ratingCount} 条收到的评价` : "暂无收到的评价"));
 
 const commonLocations = computed(() => {
   const counts = new Map<string, number>();
@@ -301,6 +315,7 @@ function openSecurityDialog() {
   securityError.value = "";
   securityOk.value = "";
   securityForm.phone = (authStore.currentUser as unknown as { phone?: string | null })?.phone || "";
+  securityForm.currentPassword = "";
   securityForm.password = "";
   securityForm.confirmPassword = "";
   securityOpen.value = true;
@@ -313,6 +328,10 @@ async function handleSecuritySave() {
     securityError.value = "两次输入的新密码不一致";
     return;
   }
+  if (securityForm.password && !securityForm.currentPassword) {
+    securityError.value = "请输入当前密码";
+    return;
+  }
 
   securitySaving.value = true;
   try {
@@ -320,12 +339,13 @@ async function handleSecuritySave() {
       phone: securityForm.phone.trim() || null,
     } as any);
     if (securityForm.password) {
-      await resetPassword({
-        studentEmail: user.value.studentEmail,
+      await changePassword({
+        currentPassword: securityForm.currentPassword,
         newPassword: securityForm.password,
       });
     }
     securityOk.value = "账号安全设置已保存";
+    securityForm.currentPassword = "";
     securityForm.password = "";
     securityForm.confirmPassword = "";
   } catch (err: any) {
@@ -339,15 +359,18 @@ async function loadProfileData() {
   if (!authStore.currentUser) return;
   edit.nickname = authStore.currentUser.nickname || "";
   try {
-    const [posted, accepted] = await Promise.all([
+    const [posted, accepted, credit] = await Promise.all([
       listMyPostedTasks({ page: 1, limit: 50 }),
       listMyAcceptedTasks({ page: 1, limit: 50 }),
+      getMyCreditProfile(),
     ]);
     postedTasks.value = posted.data;
     acceptedTasks.value = accepted.data;
+    creditProfile.value = credit;
   } catch {
     postedTasks.value = [];
     acceptedTasks.value = [];
+    creditProfile.value = null;
   }
 }
 

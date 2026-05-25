@@ -181,6 +181,7 @@ import {
   cancelTask,
   confirmTask,
   getTaskById,
+  disputeTask,
   rateTaskPartner,
   rejectTask,
   submitTaskProof,
@@ -383,7 +384,7 @@ async function handleReject() {
 
 async function handleDispute() {
   const reason = prompt("请输入争议原因：");
-  if (reason) await doAction("发起争议", () => rejectTask(task.value!.id, { reason }));
+  if (reason) await doAction("发起争议", () => disputeTask(task.value!.id, { reason }));
 }
 
 async function submitRating() {

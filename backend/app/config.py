@@ -1,7 +1,7 @@
 """
 文件说明：
 这是后端统一配置入口，负责从环境变量中读取应用、数据库、Redis、JWT、
-OSS 与 DeepSeek 等配置。组长后续应保持所有新配置都从这里集中读取。
+本地上传、DeepSeek 等配置。本项目以本地验收为基线，所有运行时配置集中从这里读取。
 """
 from __future__ import annotations
 
@@ -31,12 +31,9 @@ class Settings(BaseSettings):
     seed_demo_user_password: str = "Demo123456"
     seed_demo_user_nickname: str = "演示用户"
 
-    oss_endpoint: str = ""
-    oss_bucket_name: str = ""
-    oss_access_key_id: str = ""
-    oss_access_key_secret: str = ""
-    oss_base_url: str = ""
-    oss_upload_expire_seconds: int = 600
+    local_upload_dir: str = "uploads"
+    local_upload_base_url: str = "/uploads"
+    local_upload_max_size_mb: int = 5
 
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"

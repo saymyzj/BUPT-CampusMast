@@ -2,17 +2,19 @@
 文件说明：
 这是后端 FastAPI 应用入口文件。
 它负责统一挂载所有 HTTP Router、注册基础中间件、暴露健康检查接口并接入
- WebSocket 网关。你和 B 同学后续都应以它为唯一应用入口继续扩展。
+ WebSocket 网关。本地验收版以它为唯一应用入口。
 """
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_cors_origin_list, settings
 from app.routers import admin, auth, chat, credit, map, moderation, notification, recommendation, task, upload, wallet
 from app.utils.errors import AppError
+from app.utils.local_upload import upload_base_url, upload_dir
 from app.utils.response import failure
 from app.websockets.gateway import router as websocket_router
 from app.websockets.manager import start_realtime_listener, stop_realtime_listener
@@ -55,6 +57,7 @@ app.include_router(recommendation.router, prefix=settings.api_prefix)
 app.include_router(admin.router, prefix=settings.api_prefix)
 app.include_router(upload.router, prefix=settings.api_prefix)
 app.include_router(websocket_router)
+app.mount(upload_base_url(), StaticFiles(directory=upload_dir(), check_dir=False), name="uploads")
 
 
 @app.get("/healthz", tags=["Health"])

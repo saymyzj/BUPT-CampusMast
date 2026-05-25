@@ -150,3 +150,4 @@ def test_task_event_writes_notifications(db_session) -> None:
 
     assert response_task.status == TaskStatus.DISPUTED
     assert sorted(row.user_id for row in notifications) == ["helper", "requester"]
+    assert {row.title for row in notifications} == {"任务进入争议"}

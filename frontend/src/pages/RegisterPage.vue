@@ -125,7 +125,7 @@ import { reactive, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import { useAuthStore } from "@/stores/auth";
-import loginHeroUrl from "../../ui-static/assets/loginpage.jpg";
+import loginHeroUrl from "@/assets/auth/loginpage.jpg";
 
 const router = useRouter();
 const authStore = useAuthStore();

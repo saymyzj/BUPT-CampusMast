@@ -1,8 +1,7 @@
 """
 文件说明：
 这是 JWT 工具文件。
-当前只保留最小生成逻辑占位，组长后续可以在此补充 accessToken 与 refreshToken 的
-负载结构和校验细节。
+这里集中生成和校验 accessToken、refreshToken 的负载结构。
 """
 from __future__ import annotations
 

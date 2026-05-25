@@ -235,7 +235,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { createTask } from "@/api/modules/task";
-import { getUploadSignedUrl } from "@/api/modules/upload";
+import { uploadTaskImage } from "@/api/modules/upload";
 import { getWalletBalance } from "@/api/modules/wallet";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import type { TaskCategory, Wallet } from "@/types/api";
@@ -265,6 +265,7 @@ const form = reactive({
   category: "" as "" | TaskCategory,
   reward: "",
   deadline: "",
+  buildingCode: "",
   locationDetail: "",
 });
 
@@ -333,6 +334,7 @@ function saveDraft() {
     category: form.category,
     reward: form.reward,
     deadline: form.deadline,
+    buildingCode: form.buildingCode,
     locationDetail: form.locationDetail,
     pickedLat: pickedLat.value,
     pickedLng: pickedLng.value,
@@ -352,6 +354,7 @@ function loadDraft() {
     form.category = d.category || "";
     form.reward = d.reward || "";
     form.deadline = d.deadline || "";
+    form.buildingCode = d.buildingCode || "";
     form.locationDetail = d.locationDetail || "";
     pickedLat.value = d.pickedLat ?? null;
     pickedLng.value = d.pickedLng ?? null;
@@ -448,17 +451,8 @@ async function uploadImage(file: File) {
   uploadedImages.value.push(image);
 
   try {
-    const signed = await getUploadSignedUrl({ filename: file.name, contentType: file.type });
-    const isMockUpload = signed.uploadUrl.includes("example.com/mock-upload/") || signed.uploadUrl.includes("replace-me");
-    if (!isMockUpload) {
-      const response = await fetch(signed.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!response.ok) throw new Error(`upload failed: ${response.status}`);
-    }
-    image.url = signed.fileUrl;
+    const uploaded = await uploadTaskImage(file);
+    image.url = uploaded.fileUrl;
   } catch {
     image.error = "上传失败";
     uploadError.value = "图片上传失败，请删除后重试";
@@ -491,6 +485,9 @@ onMounted(async () => {
     pickedLat.value = Number.parseFloat(route.query.lat as string);
     pickedLng.value = Number.parseFloat(route.query.lng as string);
   }
+  if (typeof route.query.buildingCode === "string") {
+    form.buildingCode = route.query.buildingCode;
+  }
   if (!form.title && !route.query.lat) {
     loadDraft();
   }
@@ -520,6 +517,7 @@ async function handleSubmit() {
       category: form.category as TaskCategory,
       reward: rewardAmount.value.toFixed(2),
       deadline: new Date(form.deadline).toISOString(),
+      buildingCode: form.buildingCode,
       latitude: pickedLat.value ?? undefined,
       longitude: pickedLng.value ?? undefined,
       locationDetail: form.locationDetail.trim(),

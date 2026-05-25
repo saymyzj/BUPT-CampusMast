@@ -67,25 +67,21 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 _redis_listener_task: asyncio.Task[None] | None = None
-_redis_publish_client: redis_async.Redis | None = None
-
-
-async def _publish_client() -> redis_async.Redis:
-    global _redis_publish_client
-    if _redis_publish_client is None:
-        _redis_publish_client = redis_async.Redis.from_url(settings.redis_url, decode_responses=True)
-    return _redis_publish_client
-
 
 async def publish_realtime_message(message: dict[str, Any]) -> None:
+    client: redis_async.Redis | None = None
     try:
-        client = await _publish_client()
+        client = redis_async.Redis.from_url(settings.redis_url, decode_responses=True)
         envelope = json.dumps({"source": PROCESS_ID, "message": message}, ensure_ascii=False)
         await client.publish(f"{REDIS_CHANNEL_PREFIX}{message['channel']}", envelope)
-    except (RedisError, OSError, ValueError):
+    except (RedisError, OSError, RuntimeError, ValueError):
         # Redis is part of the full architecture, but local demo should still
         # work if Redis is temporarily unavailable. Local delivery already ran.
         return
+    finally:
+        if client is not None:
+            with contextlib.suppress(Exception):
+                await client.aclose()
 
 
 async def start_realtime_listener() -> None:
@@ -96,15 +92,12 @@ async def start_realtime_listener() -> None:
 
 
 async def stop_realtime_listener() -> None:
-    global _redis_listener_task, _redis_publish_client
+    global _redis_listener_task
     if _redis_listener_task is not None:
         _redis_listener_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await _redis_listener_task
         _redis_listener_task = None
-    if _redis_publish_client is not None:
-        await _redis_publish_client.aclose()
-        _redis_publish_client = None
 
 
 async def _redis_listener_loop() -> None:

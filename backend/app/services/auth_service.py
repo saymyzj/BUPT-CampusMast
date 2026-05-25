@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import Role
 from app.models.user import User, UserProfile
-from app.schemas.auth import AuthLoginRequest, AuthPayload, AuthRegisterRequest, PasswordResetRequest, UserPublicResponse, UserResponse, UserUpdateRequest
+from app.schemas.auth import AuthLoginRequest, AuthPayload, AuthRegisterRequest, PasswordChangeRequest, UserPublicResponse, UserResponse, UserUpdateRequest
 from app.utils.errors import AppError
 from app.utils.ids import generate_id
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
@@ -75,20 +75,15 @@ def refresh_access_token(db: Session, refresh_token: str) -> dict[str, str]:
     return {"accessToken": create_access_token(user.id)}
 
 
-def reset_password_directly(db: Session, payload: PasswordResetRequest) -> dict[str, str]:
-    email = payload.studentEmail.lower().strip()
-    if not email.endswith(BUPT_EMAIL_SUFFIX):
-        raise AppError("INVALID_EMAIL_DOMAIN", "仅支持北京邮电大学邮箱修改密码", status.HTTP_400_BAD_REQUEST)
+def change_current_user_password(db: Session, user: User, payload: PasswordChangeRequest) -> dict[str, str]:
+    if not verify_password(payload.currentPassword, user.password_hash):
+        raise AppError("INVALID_CURRENT_PASSWORD", "当前密码错误", status.HTTP_400_BAD_REQUEST)
     if len(payload.newPassword) < 6:
         raise AppError("INVALID_PASSWORD", "新密码至少 6 位", status.HTTP_400_BAD_REQUEST)
 
-    user = db.query(User).filter(User.student_email == email).one_or_none()
-    if user is None or not user.is_active:
-        raise AppError("USER_NOT_FOUND", "账号不存在或已停用", status.HTTP_404_NOT_FOUND)
-
     user.password_hash = hash_password(payload.newPassword)
     db.commit()
-    return {"message": "密码已修改，请使用新密码登录"}
+    return {"message": "密码已修改"}
 
 
 def get_current_user_payload(db: Session, user: User) -> UserResponse:

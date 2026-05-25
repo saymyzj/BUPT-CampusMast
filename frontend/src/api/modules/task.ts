@@ -48,6 +48,11 @@ export async function rejectTask(id: string, payload: RejectTaskRequest): Promis
   return response.data.data;
 }
 
+export async function disputeTask(id: string, payload: RejectTaskRequest): Promise<TaskDetail> {
+  const response = await apiClient.patch(`/api/tasks/${id}/dispute`, payload);
+  return response.data.data;
+}
+
 export async function cancelTask(id: string): Promise<TaskDetail> {
   const response = await apiClient.patch(`/api/tasks/${id}/cancel`);
   return response.data.data;
