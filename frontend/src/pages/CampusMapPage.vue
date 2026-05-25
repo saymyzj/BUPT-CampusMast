@@ -4,15 +4,15 @@
       <aside class="left-panel">
         <div class="panel-toolbar">
           <strong>附近任务</strong>
-          <label class="custom-select">
-            <select :value="mapStore.activeFilter" @change="changeCategory(($event.target as HTMLSelectElement).value)">
-              <option value="all">全部分类</option>
-              <option value="package">代取快递</option>
-              <option value="food">代买餐食</option>
-              <option value="move">搬运重物</option>
-              <option value="other">其他</option>
-            </select>
-          </label>
+          <AppSelect
+            class="map-category-select"
+            :model-value="mapStore.activeFilter"
+            :options="mapFilterOptions"
+            variant="pill"
+            icon="package"
+            show-option-dot
+            @change="changeCategory"
+          />
         </div>
 
         <p class="panel-hint">当前位置附近 · {{ visiblePanelPins.length }} 个任务</p>
@@ -100,6 +100,7 @@ import MapContainer from "@/components/map/MapContainer.vue";
 import TaskBeaconLayer from "@/components/map/TaskBeaconLayer.vue";
 import PickerLayer from "@/components/map/PickerLayer.vue";
 import AppIcon from "@/components/ui/AppIcon.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
 import { useMapStore, type MapTaskPin } from "@/stores/map";
 import type { CategoryType } from "@/types/map";
 
@@ -113,6 +114,14 @@ const labels: Record<CategoryType, string> = {
   move: "搬运重物",
   other: "其他",
 };
+
+const mapFilterOptions = [
+  { value: "all", label: "全部分类", icon: "spark" },
+  { value: "package", label: "代取快递", icon: "package" },
+  { value: "food", label: "代买餐食", icon: "food" },
+  { value: "move", label: "搬运重物", icon: "move" },
+  { value: "other", label: "其他", icon: "other" },
+];
 
 const icons: Record<CategoryType, string> = {
   package: "package",
@@ -225,10 +234,15 @@ onUnmounted(() => {
 
 .panel-toolbar {
   display: grid;
-  grid-template-columns: minmax(82px, 1fr) minmax(120px, 0.8fr);
+  grid-template-columns: minmax(82px, 1fr) minmax(188px, auto);
   align-items: center;
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.map-category-select {
+  width: clamp(188px, 15vw, 232px);
+  justify-self: end;
 }
 
 .panel-toolbar strong {
@@ -695,6 +709,11 @@ onUnmounted(() => {
   .panel-toolbar,
   .nearby-card {
     grid-template-columns: 1fr;
+  }
+
+  .map-category-select {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .nearby-side {

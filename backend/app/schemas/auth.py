@@ -49,6 +49,17 @@ class UserResponse(BaseModel):
     defaultBuildingCode: str | None = None
 
 
+class UserPublicResponse(BaseModel):
+    id: str
+    nickname: str
+    role: str
+    phone: str | None = None
+    avatarUrl: str | None = None
+    requesterCreditScore: float
+    helperCreditScore: float
+    overallCreditScore: float
+
+
 class AuthPayload(BaseModel):
     accessToken: str
     refreshToken: str

@@ -6,14 +6,15 @@
     </div>
 
     <div class="topbar-actions">
-      <label class="filter-select-wrap">
-        <span class="filter-icon">⌯</span>
-        <select class="filter-select" :value="mapStore.activeFilter" @change="onFilterChange">
-          <option v-for="option in filterOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </label>
+      <AppSelect
+        class="map-filter-select"
+        :model-value="mapStore.activeFilter"
+        :options="filterOptions"
+        variant="pill"
+        icon="filter"
+        show-option-dot
+        @change="onFilterChange"
+      />
       <button class="view-btn" title="列表视图" @click="router.push('/tasks')">
         <span class="view-icon">☷</span>
         <span>列表视图</span>
@@ -29,6 +30,7 @@
 import { useRouter } from "vue-router";
 import { useMapStore } from "@/stores/map";
 import { useAuthStore } from "@/stores/auth";
+import AppSelect from "@/components/ui/AppSelect.vue";
 
 defineEmits<{ toggleSidebar: [] }>();
 
@@ -44,8 +46,8 @@ const filterOptions = [
   { value: "other", label: "其他" },
 ];
 
-function onFilterChange(e: Event) {
-  mapStore.setFilter((e.target as HTMLSelectElement).value);
+function onFilterChange(value: string) {
+  mapStore.setFilter(value);
 }
 
 function toggleUserMenu() {
@@ -72,6 +74,11 @@ function toggleUserMenu() {
   align-items: center;
   min-width: 0;
   gap: 12px;
+}
+
+.map-filter-select {
+  width: clamp(176px, 14vw, 220px);
+  flex: 0 0 auto;
 }
 
 .topbar-left {

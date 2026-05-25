@@ -41,14 +41,12 @@
             <p>{{ panelSubtitle }}</p>
           </div>
           <div class="head-actions">
-            <label class="range-select">
-              <AppIcon name="calendar" />
-              <select v-model="trendRange">
-                <option value="7">近7天</option>
-                <option value="14">近14天</option>
-                <option value="30">近30天</option>
-              </select>
-            </label>
+            <AppSelect
+              v-model="trendRange"
+              :options="trendRangeOptions"
+              variant="field"
+              icon="calendar"
+            />
             <button type="button" @click="exportReport"><AppIcon name="download" />导出报表</button>
           </div>
         </header>
@@ -183,7 +181,9 @@
                 <thead><tr><th>用户</th><th>邮箱</th><th>角色</th><th>信用分</th><th>状态</th><th>操作</th></tr></thead>
                 <tbody>
                   <tr v-for="user in users" :key="user.id">
-                    <td>{{ user.nickname }}</td>
+                    <td>
+                      <button type="button" class="text-link" @click="goUser(user.id)">{{ user.nickname }}</button>
+                    </td>
                     <td>{{ user.studentEmail }}</td>
                     <td>{{ roleLabel(user.role) }}</td>
                     <td>{{ user.overallCreditScore }}</td>
@@ -358,6 +358,7 @@ import {
   adminUpdateUser,
 } from "@/api/modules/admin";
 import AppIcon from "@/components/ui/AppIcon.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
 import { useAuthStore } from "@/stores/auth";
 import type { AdminReviewStatus, HomepageBlock, ModerationRecord, ModerationResult, Role, Task, TaskStatus, User } from "@/types/api";
 
@@ -382,6 +383,12 @@ const tasks = ref<Task[]>([]);
 const selectedTask = ref<Task | null>(null);
 const moderationRows = ref<ModerationRecord[]>([]);
 const homepageBlocks = ref<HomepageBlock[]>([]);
+
+const trendRangeOptions = [
+  { value: "7", label: "近 7 天", icon: "calendar" },
+  { value: "14", label: "近 14 天", icon: "calendar" },
+  { value: "30", label: "近 30 天", icon: "calendar" },
+];
 
 const adminName = computed(() => authStore.currentUser?.nickname || "管理员");
 const adminInitial = computed(() => adminName.value.slice(0, 1));
@@ -656,6 +663,10 @@ async function toggleUserActive(user: User) {
 
 function goTask(id: string) {
   selectedTask.value = tasks.value.find((task) => task.id === id) || null;
+}
+
+function goUser(id: string) {
+  void router.push(`/users/${id}`);
 }
 
 function roleLabel(role: Role) {
@@ -1399,6 +1410,21 @@ onMounted(loadAdminData);
   font: inherit;
   font-weight: inherit;
   text-align: left;
+}
+
+.text-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: transparent;
+  color: var(--green);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .scroll-table {

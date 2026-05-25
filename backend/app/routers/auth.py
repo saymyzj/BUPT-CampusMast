@@ -12,7 +12,7 @@ from app.dependencies.auth import get_current_user
 from app.dependencies.database import get_db
 from app.models.user import User
 from app.schemas.auth import AuthLoginRequest, AuthRegisterRequest, PasswordResetRequest, TokenRefreshRequest, UserUpdateRequest
-from app.services.auth_service import get_current_user_payload, login_user, refresh_access_token, register_user, reset_password_directly, update_current_user
+from app.services.auth_service import get_current_user_payload, get_public_user_profile, login_user, refresh_access_token, register_user, reset_password_directly, update_current_user
 from app.utils.response import success
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -41,6 +41,11 @@ def reset_password(payload: PasswordResetRequest, db: Session = Depends(get_db))
 @router.get("/me")
 def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     return success(get_current_user_payload(db, user).model_dump())
+
+
+@router.get("/users/{id}")
+def get_user_profile(id: str, _: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    return success(get_public_user_profile(db, id).model_dump())
 
 
 @router.put("/me")

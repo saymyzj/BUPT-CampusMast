@@ -16,6 +16,7 @@ const routes: RouteRecordRaw[] = [
   { path: "/my-tasks", component: () => import("@/pages/MyTasksPage.vue"), meta: { requiresAuth: true } },
   { path: "/wallet", component: () => import("@/pages/WalletPage.vue"), meta: { requiresAuth: true } },
   { path: "/profile", component: () => import("@/pages/ProfilePage.vue"), meta: { requiresAuth: true } },
+  { path: "/users/:id", component: () => import("@/pages/UserProfilePage.vue"), meta: { requiresAuth: true } },
   { path: "/notifications", component: () => import("@/pages/NotificationsPage.vue"), meta: { requiresAuth: true } },
   { path: "/chat", component: () => import("@/pages/ChatPage.vue"), meta: { requiresAuth: true } },
   {
@@ -60,7 +61,7 @@ router.beforeEach(async (to, from, next) => {
   // 检查是否已认证，并按角色限制可访问页面
   if (authStore.isAuthenticated) {
     const isAdmin = authStore.currentUser?.role === "ADMIN";
-    if (isAdmin && to.path !== "/admin") {
+    if (isAdmin && to.path !== "/admin" && !to.path.startsWith("/users/")) {
       next("/admin");
       return;
     }
