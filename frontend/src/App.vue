@@ -11,5 +11,5 @@ import { RouterView, useRoute } from "vue-router";
 import AppShell from "@/components/AppShell.vue";
 
 const route = useRoute();
-const usesShellLayout = computed(() => route.meta.layout !== "map" && route.meta.layout !== "auth");
+const usesShellLayout = computed(() => !["map", "auth", "admin"].includes(String(route.meta.layout || "")));
 </script>

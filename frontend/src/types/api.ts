@@ -93,9 +93,11 @@ export interface User {
   studentEmail: string;
   nickname: string;
   role: Role;
+  phone?: string | null;
   requesterCreditScore: number;
   helperCreditScore: number;
   overallCreditScore: number;
+  isActive?: boolean;
   avatarUrl?: string | null;
   defaultBuildingCode?: string | null;
 }

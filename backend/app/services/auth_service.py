@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import Role
 from app.models.user import User, UserProfile
-from app.schemas.auth import AuthLoginRequest, AuthPayload, AuthRegisterRequest, UserResponse, UserUpdateRequest
+from app.schemas.auth import AuthLoginRequest, AuthPayload, AuthRegisterRequest, PasswordResetRequest, UserResponse, UserUpdateRequest
 from app.utils.errors import AppError
 from app.utils.ids import generate_id
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
@@ -75,6 +75,22 @@ def refresh_access_token(db: Session, refresh_token: str) -> dict[str, str]:
     return {"accessToken": create_access_token(user.id)}
 
 
+def reset_password_directly(db: Session, payload: PasswordResetRequest) -> dict[str, str]:
+    email = payload.studentEmail.lower().strip()
+    if not email.endswith(BUPT_EMAIL_SUFFIX):
+        raise AppError("INVALID_EMAIL_DOMAIN", "仅支持北京邮电大学邮箱修改密码", status.HTTP_400_BAD_REQUEST)
+    if len(payload.newPassword) < 6:
+        raise AppError("INVALID_PASSWORD", "新密码至少 6 位", status.HTTP_400_BAD_REQUEST)
+
+    user = db.query(User).filter(User.student_email == email).one_or_none()
+    if user is None or not user.is_active:
+        raise AppError("USER_NOT_FOUND", "账号不存在或已停用", status.HTTP_404_NOT_FOUND)
+
+    user.password_hash = hash_password(payload.newPassword)
+    db.commit()
+    return {"message": "密码已修改，请使用新密码登录"}
+
+
 def get_current_user_payload(db: Session, user: User) -> UserResponse:
     return serialize_user(db, user)
 
@@ -114,9 +130,11 @@ def serialize_user(db: Session, user: User) -> UserResponse:
         studentEmail=user.student_email,
         nickname=user.nickname,
         role=user.role.value,
+        phone=user.phone,
         requesterCreditScore=decimal_to_float(user.requester_credit_score) or 0,
         helperCreditScore=decimal_to_float(user.helper_credit_score) or 0,
         overallCreditScore=decimal_to_float(user.overall_credit_score) or 0,
+        isActive=user.is_active,
         avatarUrl=user.avatar_url,
         defaultBuildingCode=profile.default_building_code if profile else None,
     )

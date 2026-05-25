@@ -445,7 +445,7 @@ def expire_task(db: Session, task_id: str, actor_id: str, *, commit: bool = True
         if task.status != TaskStatus.PENDING:
             raise TaskError("ONLY_PENDING_TASK_CAN_EXPIRE", "Only pending tasks can expire")
         _set_status(db, task, TaskStatus.EXPIRED, actor_id)
-        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="Task expired refund")
+        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="任务过期退款")
         if commit:
             db.commit()
             db.refresh(task)
@@ -476,7 +476,7 @@ def expire_pending_tasks(db: Session, system_actor_id: str, *, now: datetime | N
                 task.requester_id,
                 task.reward,
                 related_task_id=task.id,
-                description="Task expired by system refund",
+                description="系统关闭过期任务退款",
             )
         db.commit()
         for task in expired:
@@ -590,7 +590,7 @@ def cancel_task(db: Session, task_id: str, requester_id: str) -> Task:
         if task.requester_id != requester_id:
             raise TaskError("ONLY_REQUESTER_CAN_CANCEL", "Only requester can cancel task")
         _set_status(db, task, TaskStatus.CANCELLED, requester_id, "Task cancelled")
-        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="Task cancelled refund")
+        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="任务取消退款")
         db.commit()
         db.refresh(task)
         return task
@@ -677,7 +677,7 @@ def resolve_dispute_for_requester(db: Session, task_id: str, admin_id: str, note
         task = _load_task(db, task_id, for_update=True)
         if task.status != TaskStatus.DISPUTED:
             raise TaskError("ONLY_DISPUTED_TASK_CAN_BE_RESOLVED", "Only disputed tasks can be resolved")
-        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="Dispute full refund")
+        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="争议处理全额退款")
         _set_status(db, task, TaskStatus.CANCELLED, admin_id, note)
         _recalculate_participant_credit(db, task)
         db.commit()
@@ -693,7 +693,7 @@ def close_dispute_by_admin(db: Session, task_id: str, admin_id: str, note: str) 
         task = _load_task(db, task_id, for_update=True)
         if task.status != TaskStatus.DISPUTED:
             raise TaskError("ONLY_DISPUTED_TASK_CAN_BE_RESOLVED", "Only disputed tasks can be resolved")
-        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="Dispute closed by admin refund")
+        unfreeze_funds(db, task.requester_id, task.reward, related_task_id=task.id, description="管理员关闭争议退款")
         _set_status(db, task, TaskStatus.CLOSED_BY_ADMIN, admin_id, note)
         _recalculate_participant_credit(db, task)
         db.commit()
